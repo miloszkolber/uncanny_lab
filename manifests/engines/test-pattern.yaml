@@ -1,0 +1,35 @@
+id: test-pattern
+name: XPU test pattern
+type: text-to-image
+version: 0.1.0
+description: Infrastructure test engine that performs tensor work and saves iterative previews.
+
+capabilities:
+  prompt: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32, fp16]
+
+parameters:
+  prompt:
+    type: string
+    default: legacy signal
+  width:
+    type: integer
+    default: 256
+    min: 64
+    max: 1024
+  height:
+    type: integer
+    default: 256
+    min: 64
+    max: 1024
+  iterations:
+    type: integer
+    default: 30
+    min: 1
+    max: 5000

@@ -1,0 +1,20 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+
+runtime:
+  device: cpu
+  python_executable: python3
+  python_path: /workspace/legacy-image-lab/python
+  default_precision: fp32
+
+paths:
+  models: /tmp/legacy-image-lab/models
+  inputs: /tmp/legacy-image-lab/inputs
+  outputs: /tmp/legacy-image-lab/outputs
+  workspace: /tmp/legacy-image-lab/workspace
+  manifests: /workspace/legacy-image-lab/manifests/engines
+
+previews:
+  enabled: true
+  every_steps: 5

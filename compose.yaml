@@ -1,0 +1,34 @@
+services:
+    legacy-image-lab:
+        container_name: legacy-image-lab
+        image: core/legacy-image-lab
+        build:
+            context: .
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        user: "1000:1000"
+        devices:
+            - /dev/dri:/dev/dri
+        group_add:
+            - "${VIDEO_GID:-44}"
+            - "${RENDER_GID:-993}"
+        # PyTorch uses shared memory for tensor and worker data exchange.
+        ipc: host
+        environment:
+            TZ: Europe/Warsaw
+            XPU_VISIBLE_DEVICES: "0"
+            PYTHONUNBUFFERED: "1"
+        volumes:
+            - /data/models/legacy-image-lab:/models
+            - /data/storage/legacy-image-lab/inputs:/inputs
+            - /data/storage/legacy-image-lab/outputs:/outputs
+            - /var/lib/legacy-image-lab/workspace:/workspace
+            - ./config/config.yaml:/config/config.yaml:ro
+        ports:
+            - "8080:8080"
+        healthcheck:
+            test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 10s

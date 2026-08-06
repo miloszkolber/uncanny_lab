@@ -1,0 +1,42 @@
+:root { font-family: var(--ui-font-sans); color: var(--ui-text-primary); background: var(--ui-canvas); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+.lab-header { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); }
+.view { min-width: 0; }
+.generate-workspace { min-height: calc(100svh - var(--ui-header-height) - var(--ui-overview-min-height)); }
+.controls-body, .stage-body, .field-list { display: grid; gap: var(--ui-space-4); align-content: start; }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+.field-group { display: grid; gap: var(--ui-space-3); }
+.field-group + .field-group { padding-top: var(--ui-space-4); border-top: var(--ui-border-width) solid var(--ui-border-default); }
+.field-group-title { margin: 0; color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-font-size-xs); font-weight: var(--ui-font-weight-medium); letter-spacing: var(--ui-letter-spacing-wide); text-transform: uppercase; }
+.upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+.upload-box { display: grid; gap: var(--ui-space-2); }
+.upload-preview { width: 100%; aspect-ratio: 1; object-fit: cover; border: var(--ui-border-width) solid var(--ui-border-default); background: var(--ui-media-bg); }
+.stage-body { grid-template-rows: minmax(0, 1fr) auto auto auto auto; height: 100%; }
+.preview-wrap { min-height: var(--ui-space-16); display: grid; place-items: center; overflow: hidden; border: var(--ui-border-width) solid var(--ui-border-default); background: var(--ui-media-bg); }
+.preview-wrap img, .lightbox-main img { width: 100%; height: 100%; object-fit: contain; }
+.progress-copy, .action-row { display: flex; align-items: center; gap: var(--ui-space-3); }
+.progress-copy .ui-progress { flex: 1; }
+.timeline { display: flex; gap: var(--ui-space-2); overflow-x: auto; }
+.timeline-item { width: var(--ui-control-height); height: var(--ui-control-height); flex: 0 0 auto; padding: 0; overflow: hidden; border: var(--ui-border-width) solid var(--ui-border-default); background: var(--ui-control-bg); color: var(--ui-text-secondary); }
+.timeline-item[aria-pressed="true"] { border: var(--ui-focus-ring-width) solid var(--ui-focus-ring); }
+.timeline-item img { width: 100%; height: 100%; object-fit: cover; }
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--ui-space-16)), 1fr)); gap: var(--ui-space-4); padding: var(--ui-space-6); }
+.job-card { display: grid; overflow: hidden; border: var(--ui-border-width) solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface-raised); }
+.job-thumb { aspect-ratio: 1; display: grid; place-items: center; background: var(--ui-media-bg); color: var(--ui-text-secondary); }
+.job-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.job-card-body { display: grid; gap: var(--ui-space-3); padding: var(--ui-space-4); }
+.card-top { display: flex; align-items: start; justify-content: space-between; gap: var(--ui-space-2); }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-2); }
+.diagnostic-grid, .model-family { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--ui-space-16)), 1fr)); gap: var(--ui-space-4); padding: var(--ui-space-6); }
+.diagnostic-card, .model-card { display: grid; gap: var(--ui-space-2); padding: var(--ui-space-4); border: var(--ui-border-width) solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface-raised); }
+.diagnostic-card dt, .detail-meta dt { color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-font-size-xs); }
+.diagnostic-card dd, .detail-meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.family-title { margin: var(--ui-space-6) var(--ui-space-6) 0; }
+.lightbox-main { min-width: 0; display: grid; place-items: center; background: var(--ui-media-bg); }
+.lightbox-info { display: grid; align-content: start; gap: var(--ui-space-4); padding: var(--ui-space-4); overflow: auto; }
+.dialog-top { display: flex; justify-content: space-between; gap: var(--ui-space-3); }
+.detail-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ui-space-2) var(--ui-space-3); }
+.sr-only { position: absolute; width: var(--ui-border-width); height: var(--ui-border-width); padding: 0; margin: calc(-1 * var(--ui-border-width)); overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 56.25rem) { .generate-workspace { min-height: auto; } .stage-panel { min-height: calc(var(--ui-space-16) * 8); } }
+@media (max-width: 37.5rem) { .lab-header { align-items: start; flex-direction: column; padding-block: var(--ui-space-3); } .field-grid, .upload-grid { grid-template-columns: 1fr; } .history-grid, .diagnostic-grid, .model-family { padding: var(--ui-space-4); } }
