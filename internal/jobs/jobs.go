@@ -73,9 +73,6 @@ func CanTransition(from, to Status) bool {
 }
 
 func ValidateCreate(req CreateRequest) error {
-	if req.Engine != "test-pattern" {
-		return errors.New("unsupported engine")
-	}
 	if len(req.Parameters) == 0 {
 		req.Parameters = json.RawMessage(`{}`)
 	}

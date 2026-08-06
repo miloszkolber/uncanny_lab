@@ -19,6 +19,8 @@ type Manifest struct {
 	Capabilities map[string]bool        `yaml:"capabilities" json:"capabilities"`
 	Runtime      map[string]any         `yaml:"runtime" json:"runtime"`
 	Parameters   map[string]interface{} `yaml:"parameters" json:"parameters"`
+	Enabled      *bool                  `yaml:"enabled" json:"enabled"`
+	Models       []string               `yaml:"models" json:"models"`
 }
 
 type Registry struct{ manifests []Manifest }
@@ -68,3 +70,5 @@ func (r *Registry) Get(id string) (Manifest, bool) {
 	}
 	return Manifest{}, false
 }
+
+func (m Manifest) IsEnabled() bool { return m.Enabled == nil || *m.Enabled }

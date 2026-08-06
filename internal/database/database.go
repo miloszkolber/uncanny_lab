@@ -143,6 +143,21 @@ func (r *Repository) ListRecoverable(ctx context.Context) ([]jobs.Job, error) {
 	return result, rows.Err()
 }
 
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM jobs WHERE id=?`, id)
+	if err != nil {
+		return fmt.Errorf("delete job %s: %w", id, err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count deleted jobs: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func jobFields(job jobs.Job) []any {
 	return []any{job.ID, job.Engine, job.Status, string(job.Parameters), job.Seed, job.ProgressStep, job.ProgressTotal, job.PreviewPath, job.FinalPath, job.ErrorCode, job.ErrorMessage, formatTime(job.CreatedAt), formatOptionalTime(job.StartedAt), formatOptionalTime(job.CompletedAt), job.EngineVersion, job.RuntimeDevice, job.RuntimePrecision}
 }

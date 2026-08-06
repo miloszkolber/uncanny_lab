@@ -1,12 +1,17 @@
 package api
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	"image/png"
 	"io"
 	"log/slog"
 	"mime"
@@ -19,6 +24,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/miloszkolber/legacy-image-lab/internal/config"
@@ -38,12 +44,14 @@ type API struct {
 	version      string
 	logger       *slog.Logger
 	registry     *engines.Registry
+	verifySem    chan struct{}
 	systemMu     sync.Mutex
 	systemCache  map[string]any
 	systemCached time.Time
 }
 
 var jobIDPattern = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
+var uploadIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
 func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *events.Broker, cfg config.Config, version string, logger *slog.Logger) (http.Handler, error) {
 	static, err := webassets.Handler()
@@ -54,18 +62,27 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	if err != nil {
 		return nil, err
 	}
-	a := &API{repo: repo, orchestrator: runner, broker: broker, cfg: cfg, version: version, logger: logger, registry: registry}
+	a := &API{repo: repo, orchestrator: runner, broker: broker, cfg: cfg, version: version, logger: logger, registry: registry, verifySem: make(chan struct{}, 2)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.health)
 	mux.HandleFunc("GET /api/engines", a.engines)
+	mux.HandleFunc("GET /api/models", a.models)
+	mux.HandleFunc("POST /api/models/{id}/verify", a.verifyModel)
+	mux.HandleFunc("POST /api/uploads", a.upload)
+	mux.HandleFunc("GET /api/uploads/{token}", a.getUpload)
 	mux.HandleFunc("GET /api/jobs", a.listJobs)
 	mux.HandleFunc("POST /api/jobs", a.createJob)
 	mux.HandleFunc("GET /api/jobs/{id}", a.getJob)
 	mux.HandleFunc("POST /api/jobs/{id}/cancel", a.cancelJob)
 	mux.HandleFunc("POST /api/jobs/{id}/duplicate", a.duplicateJob)
+	mux.HandleFunc("POST /api/jobs/{id}/use-as-input", a.useAsInput)
+	mux.HandleFunc("GET /api/jobs/{id}/export", a.exportJob)
+	mux.HandleFunc("DELETE /api/jobs/{id}", a.deleteJob)
 	mux.HandleFunc("GET /api/events", a.streamEvents)
 	mux.HandleFunc("GET /api/system", a.system)
 	mux.HandleFunc("GET /artifacts/{id}/{path...}", a.artifact)
+	mux.HandleFunc("GET /ui/core-ui.css", a.uiAsset("core-ui.css", "text/css; charset=utf-8"))
+	mux.HandleFunc("GET /ui/lucide.svg", a.uiAsset("lucide.svg", "image/svg+xml"))
 	mux.Handle("/", static)
 	return securityHeaders(requestLog(logger, mux)), nil
 }
@@ -76,6 +93,130 @@ func (a *API) health(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) engines(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, a.registry.All())
+}
+
+func (a *API) models(w http.ResponseWriter, _ *http.Request) {
+	models, err := engines.LoadModels(a.cfg.Paths.Models, a.registry)
+	if err != nil {
+		a.internalError(w, "list models", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, models)
+}
+
+func (a *API) verifyModel(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	select {
+	case a.verifySem <- struct{}{}:
+		defer func() { <-a.verifySem }()
+	case <-r.Context().Done():
+		return
+	}
+	model, err := engines.VerifyModel(a.cfg.Paths.Models, r.PathValue("id"), a.registry)
+	if errors.Is(err, os.ErrNotExist) {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Model not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_MODEL", "Model could not be verified")
+		return
+	}
+	writeJSON(w, http.StatusOK, model)
+}
+
+const maxUploadBytes = 32 << 20
+const maxImagePixels = 40_000_000
+const maxImageDimension = 12_000
+
+func (a *API) upload(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data;") {
+		writeError(w, http.StatusUnsupportedMediaType, "INVALID_CONTENT_TYPE", "Content-Type must be multipart/form-data")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+1024)
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		writeError(w, http.StatusRequestEntityTooLarge, "UPLOAD_TOO_LARGE", "Upload exceeds 32 MiB")
+		return
+	}
+	file, _, err := r.FormFile("image")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_UPLOAD", "A form field named image is required")
+		return
+	}
+	defer file.Close()
+	decoded, format, err := image.DecodeConfig(io.LimitReader(file, maxUploadBytes))
+	if err != nil || (format != "png" && format != "jpeg") {
+		writeError(w, http.StatusUnsupportedMediaType, "INVALID_IMAGE", "Upload must be a PNG or JPEG image")
+		return
+	}
+	if decoded.Width < 1 || decoded.Height < 1 || decoded.Width > maxImageDimension || decoded.Height > maxImageDimension || int64(decoded.Width)*int64(decoded.Height) > maxImagePixels {
+		writeError(w, http.StatusBadRequest, "IMAGE_TOO_LARGE", "Image dimensions exceed limits")
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		a.internalError(w, "rewind upload", err)
+		return
+	}
+	img, _, err := image.Decode(io.LimitReader(file, maxUploadBytes))
+	if err != nil {
+		writeError(w, http.StatusUnsupportedMediaType, "INVALID_IMAGE", "Upload must be a PNG or JPEG image")
+		return
+	}
+	var random [16]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		a.internalError(w, "generate upload ID", err)
+		return
+	}
+	id := hex.EncodeToString(random[:])
+	if err := os.MkdirAll(a.cfg.Paths.Inputs, 0o750); err != nil {
+		a.internalError(w, "create inputs directory", err)
+		return
+	}
+	target := filepath.Join(a.cfg.Paths.Inputs, id+".png")
+	temporary := target + ".tmp"
+	out, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)
+	if err == nil {
+		err = png.Encode(out, img)
+		closeErr := out.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}
+	if err != nil {
+		_ = os.Remove(temporary)
+		a.internalError(w, "save upload", err)
+		return
+	}
+	if err := os.Rename(temporary, target); err != nil {
+		_ = os.Remove(temporary)
+		a.internalError(w, "publish upload", err)
+		return
+	}
+	token := "inputs/" + id + ".png"
+	writeJSON(w, http.StatusCreated, map[string]string{"token": token, "url": "/api/uploads/" + id})
+}
+
+func (a *API) getUpload(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("token")
+	if !uploadIDPattern.MatchString(id) {
+		http.NotFound(w, r)
+		return
+	}
+	path, err := containedFile(a.cfg.Paths.Inputs, id+".png")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	http.ServeFile(w, r, path)
 }
 
 func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +309,123 @@ func (a *API) duplicateJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, job)
 }
 
+func (a *API) useAsInput(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	job, err := a.repo.Get(r.Context(), r.PathValue("id"))
+	if errors.Is(err, database.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job not found")
+		return
+	}
+	if err != nil {
+		a.internalError(w, "get job input", err)
+		return
+	}
+	if job.Status != jobs.Completed || job.FinalPath != "final.png" {
+		writeError(w, http.StatusConflict, "NO_FINAL_IMAGE", "Job has no final image")
+		return
+	}
+	if _, err := jobDirectory(a.cfg, job.ID); err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Final image not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"token": "workspace/jobs/" + job.ID + "/final.png", "template": map[string]any{"parameters": map[string]string{"init_image": "workspace/jobs/" + job.ID + "/final.png"}}})
+}
+
+func (a *API) exportJob(w http.ResponseWriter, r *http.Request) {
+	job, err := a.repo.Get(r.Context(), r.PathValue("id"))
+	if errors.Is(err, database.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job not found")
+		return
+	}
+	if err != nil {
+		a.internalError(w, "export job", err)
+		return
+	}
+	directory, err := jobDirectory(a.cfg, job.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job directory not found")
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "uncanny-lab-"+job.ID+".zip"))
+	zipWriter := zip.NewWriter(w)
+	err = filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() {
+			return err
+		}
+		relative, err := filepath.Rel(directory, path)
+		if err != nil {
+			return err
+		}
+		file, err := zipWriter.Create(filepath.ToSlash(relative))
+		if err != nil {
+			return err
+		}
+		in, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		_, err = io.Copy(file, in)
+		return err
+	})
+	if closeErr := zipWriter.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		a.logger.Error("export job", "job_id", job.ID, "error", err)
+	}
+}
+
+func (a *API) deleteJob(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	job, err := a.repo.Get(r.Context(), r.PathValue("id"))
+	if errors.Is(err, database.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job not found")
+		return
+	}
+	if err != nil {
+		a.internalError(w, "get job for deletion", err)
+		return
+	}
+	if job.Status != jobs.Completed && job.Status != jobs.Failed && job.Status != jobs.Cancelled {
+		writeError(w, http.StatusConflict, "JOB_NOT_TERMINAL", "Only terminal jobs can be deleted")
+		return
+	}
+	directory, err := jobDirectory(a.cfg, job.ID)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		writeError(w, http.StatusBadRequest, "INVALID_JOB_DIRECTORY", "Job directory is unsafe")
+		return
+	}
+	if err == nil {
+		if err := os.RemoveAll(directory); err != nil {
+			a.internalError(w, "remove job directory", err)
+			return
+		}
+	}
+	if err := a.repo.Delete(r.Context(), job.ID); err != nil {
+		a.internalError(w, "delete job", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 	if len(request.Parameters) == 0 {
 		request.Parameters = json.RawMessage(`{}`)
@@ -176,7 +434,7 @@ func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 		return jobs.Job{}, err
 	}
 	manifest, ok := a.registry.Get(request.Engine)
-	if !ok {
+	if !ok || !manifest.IsEnabled() {
 		return jobs.Job{}, errors.New("unsupported engine")
 	}
 	now := time.Now().UTC()
@@ -287,30 +545,102 @@ func (a *API) artifact(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) system(w http.ResponseWriter, r *http.Request) {
 	a.systemMu.Lock()
-	defer a.systemMu.Unlock()
+	var probe map[string]any
 	if a.systemCache != nil && time.Since(a.systemCached) < 30*time.Second {
-		writeJSON(w, http.StatusOK, a.systemCache)
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-	command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "legacy_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
-	command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath)
-	output, err := command.Output()
-	probe := map[string]any{"available": false, "error": "Runtime probe failed"}
-	if err == nil {
-		if decodeErr := json.Unmarshal(output, &probe); decodeErr != nil {
-			probe["error"] = "Runtime returned invalid data"
+		probe, _ = a.systemCache["runtime"].(map[string]any)
+	} else {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "legacy_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
+		command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath)
+		output, err := command.Output()
+		cancel()
+		probe = map[string]any{"available": false, "error": "Runtime probe failed"}
+		if err == nil {
+			if decodeErr := json.Unmarshal(output, &probe); decodeErr != nil {
+				probe["error"] = "Runtime returned invalid data"
+			}
 		}
+		a.systemCache, a.systemCached = map[string]any{"runtime": probe}, time.Now()
 	}
-	response := map[string]any{"application_version": a.version, "go_version": runtime.Version(), "runtime": probe, "configured_device": a.cfg.Runtime.Device, "queue_length": a.orchestrator.QueueLength(), "models_directory": a.cfg.Paths.Models, "workspace_directory": a.cfg.Paths.Workspace}
-	a.systemCache, a.systemCached = response, time.Now()
+	a.systemMu.Unlock()
+	queue, _ := a.repo.List(r.Context(), 200)
+	states := map[string]int{}
+	for _, job := range queue {
+		states[string(job.Status)]++
+	}
+	response := map[string]any{"application_name": "Uncanny Lab", "application_version": a.version, "go_version": runtime.Version(), "runtime": probe, "configured_device": a.cfg.Runtime.Device, "queue_length": a.orchestrator.QueueLength(), "job_states": states, "models_directory": a.cfg.Paths.Models, "workspace_directory": a.cfg.Paths.Workspace, "data_free_bytes": freeSpace(a.cfg.Paths.Data)}
 	writeJSON(w, http.StatusOK, response)
 }
 
 func (a *API) internalError(w http.ResponseWriter, operation string, err error) {
 	a.logger.Error(operation, "error", err)
 	writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The request could not be completed")
+}
+
+func (a *API) uiAsset(name, contentType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path, err := containedFile(a.cfg.Paths.UILibrary, name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		http.ServeFile(w, r, path)
+	}
+}
+
+func containedFile(root, relative string) (string, error) {
+	if filepath.IsAbs(relative) || filepath.Clean(relative) != relative {
+		return "", errors.New("invalid path")
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+	path, err := filepath.EvalSymlinks(filepath.Join(resolvedRoot, relative))
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(path, resolvedRoot+string(filepath.Separator)) {
+		return "", errors.New("path escapes root")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", errors.New("not regular")
+	}
+	return path, nil
+}
+
+func jobDirectory(cfg config.Config, id string) (string, error) {
+	if !jobIDPattern.MatchString(id) {
+		return "", errors.New("invalid job ID")
+	}
+	root, err := filepath.EvalSymlinks(cfg.JobRoot())
+	if err != nil {
+		return "", err
+	}
+	directory := filepath.Join(root, id)
+	info, err := os.Lstat(directory)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return "", errors.New("job directory is unsafe")
+	}
+	resolved, err := filepath.EvalSymlinks(directory)
+	if err != nil || !strings.HasPrefix(resolved, root+string(filepath.Separator)) {
+		return "", errors.New("job directory escapes root")
+	}
+	return resolved, nil
+}
+
+func freeSpace(path string) int64 {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(path, &stat); err != nil {
+		return 0
+	}
+	return int64(stat.Bavail) * int64(stat.Bsize)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {

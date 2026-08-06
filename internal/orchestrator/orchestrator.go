@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -193,6 +194,12 @@ func (o *Orchestrator) execute(id string) {
 		"runtime": map[string]any{"device": job.RuntimeDevice, "precision": job.RuntimePrecision},
 		"preview": map[string]any{"enabled": o.cfg.Previews.Enabled, "every_steps": o.cfg.Previews.EverySteps},
 	}
+	materialized, err := MaterializeImageParameters(o.cfg, jobDir, job.Parameters)
+	if err != nil {
+		o.fail(&job, "INVALID_IMAGE_INPUT", err.Error())
+		return
+	}
+	spec["parameters"] = materialized
 	jobPath := filepath.Join(jobDir, "job.json")
 	if err := atomicJSON(jobPath, spec); err != nil {
 		o.fail(&job, "ARTIFACT_WRITE_FAILED", err.Error())
@@ -392,12 +399,116 @@ func (o *Orchestrator) finish(job *jobs.Job, code, message string) error {
 	}
 	o.publish(job.ID, string(job.Status), *job)
 	if job.Status == jobs.Completed {
-		metadata := map[string]any{"job": job, "application": "Legacy Image Lab", "completed_at": now}
+		metadata := map[string]any{"job": job, "application": "Uncanny Lab", "completed_at": now}
 		if err := atomicJSON(filepath.Join(o.cfg.JobRoot(), job.ID, "metadata.json"), metadata); err != nil {
 			o.logger.Error("write metadata", "job_id", job.ID, "error", err)
 		}
 	}
 	return nil
+}
+
+var inputTokenID = regexp.MustCompile(`^[a-f0-9]{32}$`)
+var jobTokenID = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
+
+// MaterializeImageParameters replaces accepted image tokens in the worker spec with
+// private copies. The database keeps the original tokens for reproducibility.
+func MaterializeImageParameters(cfg config.Config, jobDir string, raw json.RawMessage) (json.RawMessage, error) {
+	var parameters map[string]any
+	if err := json.Unmarshal(raw, &parameters); err != nil {
+		return nil, errors.New("parameters are invalid")
+	}
+	for _, key := range []string{"source_image", "style_image", "init_image"} {
+		value, exists := parameters[key]
+		if !exists || value == nil {
+			continue
+		}
+		token, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("%s must be an image token", key)
+		}
+		source, err := resolveImageToken(cfg, token)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", key, err)
+		}
+		destination := filepath.Join(jobDir, "inputs", key+".png")
+		if err := copyRegularFile(source, destination); err != nil {
+			return nil, fmt.Errorf("copy %s: %w", key, err)
+		}
+		parameters[key] = destination
+	}
+	return json.Marshal(parameters)
+}
+
+func resolveImageToken(cfg config.Config, token string) (string, error) {
+	var root, relative string
+	if strings.HasPrefix(token, "inputs/") {
+		root, relative = cfg.Paths.Inputs, strings.TrimPrefix(token, "inputs/")
+		if !inputTokenID.MatchString(strings.TrimSuffix(relative, ".png")) || filepath.Ext(relative) != ".png" {
+			return "", errors.New("invalid input token")
+		}
+	} else if strings.HasPrefix(token, "workspace/jobs/") {
+		root, relative = cfg.JobRoot(), strings.TrimPrefix(token, "workspace/jobs/")
+		parts := strings.Split(filepath.ToSlash(relative), "/")
+		if len(parts) != 2 || !jobTokenID.MatchString(parts[0]) || (parts[1] != "final.png" && !previewToken(parts[1])) {
+			return "", errors.New("invalid workspace token")
+		}
+	} else {
+		return "", errors.New("unrecognized image token")
+	}
+	return resolvedContainedFile(root, relative)
+}
+
+func previewToken(value string) bool {
+	return strings.HasPrefix(value, "previews/") && strings.HasSuffix(value, ".png") && filepath.Base(value) != ".png" && filepath.Base(value) == filepath.Clean(filepath.Base(value))
+}
+
+func resolvedContainedFile(root, relative string) (string, error) {
+	if filepath.IsAbs(relative) || filepath.Clean(relative) != relative || strings.HasPrefix(relative, "..") {
+		return "", errors.New("invalid path")
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(filepath.Join(resolvedRoot, relative))
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(resolved, resolvedRoot+string(filepath.Separator)) {
+		return "", errors.New("path escapes allowed root")
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", errors.New("image is not a regular file")
+	}
+	return resolved, nil
+}
+
+func copyRegularFile(source, destination string) error {
+	in, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if err := os.MkdirAll(filepath.Dir(destination), 0o750); err != nil {
+		return err
+	}
+	temporary := destination + ".tmp"
+	out, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(temporary)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(temporary)
+		return closeErr
+	}
+	return os.Rename(temporary, destination)
 }
 
 func (o *Orchestrator) publish(jobID, eventName string, payload any) {

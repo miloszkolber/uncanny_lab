@@ -31,11 +31,13 @@ type RuntimeConfig struct {
 }
 
 type PathsConfig struct {
+	Data      string `yaml:"data"`
 	Models    string `yaml:"models"`
 	Inputs    string `yaml:"inputs"`
 	Outputs   string `yaml:"outputs"`
 	Workspace string `yaml:"workspace"`
 	Manifests string `yaml:"manifests"`
+	UILibrary string `yaml:"ui_library"`
 }
 
 type PreviewConfig struct {
@@ -47,7 +49,7 @@ func defaults() Config {
 	return Config{
 		Server:   ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Runtime:  RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/app/python"},
-		Paths:    PathsConfig{Models: "/models", Inputs: "/inputs", Outputs: "/outputs", Workspace: "/workspace", Manifests: "/app/manifests/engines"},
+		Paths:    PathsConfig{Data: "/data", Models: "/models", Inputs: "/inputs", Outputs: "/outputs", Workspace: "/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
 		Previews: PreviewConfig{Enabled: true, EverySteps: 5},
 	}
 }
@@ -80,7 +82,7 @@ func (c Config) Validate() error {
 	if c.Runtime.PythonExecutable == "" || c.Runtime.PythonPath == "" {
 		return errors.New("runtime Python executable and path are required")
 	}
-	for name, path := range map[string]string{"models": c.Paths.Models, "inputs": c.Paths.Inputs, "outputs": c.Paths.Outputs, "workspace": c.Paths.Workspace} {
+	for name, path := range map[string]string{"data": c.Paths.Data, "models": c.Paths.Models, "inputs": c.Paths.Inputs, "outputs": c.Paths.Outputs, "workspace": c.Paths.Workspace, "ui_library": c.Paths.UILibrary} {
 		if !filepath.IsAbs(path) {
 			return fmt.Errorf("paths.%s must be absolute", name)
 		}
