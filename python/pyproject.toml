@@ -3,10 +3,11 @@ name = "legacy-image-lab"
 version = "0.1.0"
 description = "Replaceable Python image-generation workers for Legacy Image Lab"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["torch", "Pillow"]
 
 [project.optional-dependencies]
 test = []
+clip = ["open_clip_torch"]
 
 [build-system]
 requires = ["hatchling"]

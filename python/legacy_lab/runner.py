@@ -9,6 +9,7 @@ from typing import Any
 
 from legacy_lab.common.progress import diagnostic, fail
 from legacy_lab.engines import get_engine
+from legacy_lab.errors import WorkerError
 from legacy_lab.runtime.device import Runtime
 
 
@@ -45,6 +46,9 @@ def run(args: argparse.Namespace) -> int:
         runtime = Runtime.create(str(runtime_config.get("device", "xpu")), str(runtime_config.get("precision", "fp32")))
         engine.generate(job, parameters, runtime, args.job.resolve().parent)
         return 0
+    except WorkerError as error:
+        fail(error.code, error.message)
+        return 1
     except ValueError as error:
         fail("INVALID_PARAMETERS", str(error))
         return 1
@@ -52,6 +56,10 @@ def run(args: argparse.Namespace) -> int:
         fail("OUT_OF_MEMORY", "Unable to allocate memory for this generation")
         return 1
     except Exception as error:
+        # Torch reports allocator exhaustion as RuntimeError, including on XPU.
+        if "out of memory" in str(error).lower():
+            fail("OUT_OF_MEMORY", "Unable to allocate memory for this generation")
+            return 1
         diagnostic(f"{type(error).__name__}: {error}")
         fail("ENGINE_CRASHED", "The engine stopped unexpectedly")
         return 1

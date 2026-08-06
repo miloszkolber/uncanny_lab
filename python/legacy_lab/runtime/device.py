@@ -8,6 +8,8 @@ import random
 from dataclasses import dataclass
 from typing import Any, ContextManager
 
+from legacy_lab.errors import WorkerError
+
 
 try:
     import torch
@@ -25,11 +27,13 @@ class Runtime:
     @classmethod
     def create(cls, requested_device: str, precision: str = "fp32") -> "Runtime":
         if requested_device not in {"xpu", "cpu"}:
-            raise ValueError("device must be xpu or cpu")
+            raise WorkerError("INVALID_PARAMETERS", "device must be xpu or cpu")
         if precision not in {"fp32", "fp16"}:
-            raise ValueError("precision must be fp32 or fp16")
+            raise WorkerError("UNSUPPORTED_PRECISION", "precision must be fp32 or fp16")
         xpu_available = bool(torch is not None and hasattr(torch, "xpu") and torch.xpu.is_available())
         selected = "xpu" if requested_device == "xpu" and xpu_available else "cpu"
+        if precision == "fp16" and selected == "cpu":
+            raise WorkerError("UNSUPPORTED_PRECISION", "fp16 is supported only on XPU")
         return cls(requested_device=requested_device, device=selected, precision=precision, fallback=selected != requested_device)
 
     def seed(self, value: int) -> None:
