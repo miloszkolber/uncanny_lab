@@ -449,7 +449,8 @@ func resolveImageToken(cfg config.Config, token string) (string, error) {
 	} else if strings.HasPrefix(token, "workspace/jobs/") {
 		root, relative = cfg.JobRoot(), strings.TrimPrefix(token, "workspace/jobs/")
 		parts := strings.Split(filepath.ToSlash(relative), "/")
-		if len(parts) != 2 || !jobTokenID.MatchString(parts[0]) || (parts[1] != "final.png" && !previewToken(parts[1])) {
+		validArtifact := len(parts) == 2 && parts[1] == "final.png" || len(parts) == 3 && parts[1] == "previews" && previewToken(parts[2])
+		if !jobTokenID.MatchString(parts[0]) || !validArtifact {
 			return "", errors.New("invalid workspace token")
 		}
 	} else {
@@ -459,7 +460,7 @@ func resolveImageToken(cfg config.Config, token string) (string, error) {
 }
 
 func previewToken(value string) bool {
-	return strings.HasPrefix(value, "previews/") && strings.HasSuffix(value, ".png") && filepath.Base(value) != ".png" && filepath.Base(value) == filepath.Clean(filepath.Base(value))
+	return strings.HasSuffix(value, ".png") && strings.TrimSuffix(value, ".png") != "" && filepath.Base(value) == value
 }
 
 func resolvedContainedFile(root, relative string) (string, error) {
