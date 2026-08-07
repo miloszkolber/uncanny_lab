@@ -15,6 +15,7 @@ import (
 )
 
 var modelIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
+var sha256Pattern = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
 
 type ModelDescriptor struct {
 	ID      string   `json:"id"`
@@ -118,6 +119,14 @@ func statusFor(root string, descriptor ModelDescriptor, verify bool) ModelStatus
 		}
 		return status
 	}
+	if descriptor.SHA256 == "" && strings.HasPrefix(descriptor.Path, "bundle-b/") {
+		descriptor.SHA256 = bundleArtifactHash(root, descriptor.Path)
+		status.ModelDescriptor = descriptor
+		if !sha256Pattern.MatchString(descriptor.SHA256) {
+			status.Status = "invalid"
+			return status
+		}
+	}
 	if verify {
 		hash, err := FileSHA256(path)
 		if err != nil {
@@ -133,6 +142,59 @@ func statusFor(root string, descriptor ModelDescriptor, verify bool) ModelStatus
 	status.Status = "available"
 	return status
 }
+
+// bundleArtifactHash makes built-in Bundle B descriptors verifiable without duplicating
+// conversion hashes in manifests. The signed-by-hash provenance is itself checked by
+// modelinstall before publication and is rechecked against each artifact here.
+func bundleArtifactHash(root, path string) string {
+	report, err := containedFile(root, "bundle-b/provenance/bundle-b-conversion-report.json")
+	if err != nil {
+		return ""
+	}
+	var value struct {
+		Format string `json:"format"`
+		VGG19  struct {
+			Artifact struct {
+				SHA256 string `json:"sha256"`
+			} `json:"artifact"`
+		} `json:"vgg19"`
+		Clip struct {
+			Artifact struct {
+				SHA256 string `json:"sha256"`
+			} `json:"artifact"`
+		} `json:"clip"`
+		VQGAN struct {
+			Decoder struct {
+				SHA256 string `json:"sha256"`
+			} `json:"decoder"`
+			Codebook struct {
+				SHA256 string `json:"sha256"`
+			} `json:"codebook"`
+		} `json:"vqgan"`
+		BigGAN struct {
+			Artifact struct {
+				SHA256 string `json:"sha256"`
+			} `json:"artifact"`
+		} `json:"biggan"`
+	}
+	if json.Unmarshal(mustRead(report), &value) != nil || value.Format != "uncanny-lab-bundle-b-conversion-v2" {
+		return ""
+	}
+	switch path {
+	case "bundle-b/classifiers/vgg19.pt":
+		return value.VGG19.Artifact.SHA256
+	case "bundle-b/clip/vit-b-32.pt":
+		return value.Clip.Artifact.SHA256
+	case "bundle-b/vqgan/decoder.pt":
+		return value.VQGAN.Decoder.SHA256
+	case "bundle-b/vqgan/codebook.pt":
+		return value.VQGAN.Codebook.SHA256
+	case "bundle-b/biggan/generator.pt":
+		return value.BigGAN.Artifact.SHA256
+	}
+	return ""
+}
+func mustRead(path string) []byte { b, _ := os.ReadFile(path); return b }
 
 func VerifyModel(root, id string, registry *Registry) (ModelStatus, error) {
 	if !modelIDPattern.MatchString(id) {
@@ -164,15 +226,15 @@ func VerifyModel(root, id string, registry *Registry) (ModelStatus, error) {
 func builtinModel(id string) ModelDescriptor {
 	switch id {
 	case "vgg19-imagenet":
-		return ModelDescriptor{ID: id, Path: "classifiers/vgg19.pt", Family: "Classifiers", License: "Checkpoint license applies", Notes: "TorchVision-compatible VGG19 state_dict"}
+		return ModelDescriptor{ID: id, Path: "bundle-b/classifiers/vgg19.pt", Family: "Classifiers", License: "Checkpoint license applies", Notes: "TorchVision-compatible VGG19 state_dict"}
 	case "clip-vit-b-32":
-		return ModelDescriptor{ID: id, Path: "clip/vit-b-32.pt", Family: "CLIP", License: "Checkpoint license applies", Notes: "OpenCLIP ViT-B-32 state_dict"}
+		return ModelDescriptor{ID: id, Path: "bundle-b/clip/vit-b-32.pt", Family: "CLIP", License: "Checkpoint license applies", Notes: "OpenCLIP ViT-B-32 state_dict"}
 	case "vqgan-decoder":
-		return ModelDescriptor{ID: id, Path: "vqgan/decoder.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "TorchScript decoder accepting a quantized BCHW embedding grid"}
+		return ModelDescriptor{ID: id, Path: "bundle-b/vqgan/decoder.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "TorchScript decoder accepting a quantized BCHW embedding grid"}
 	case "vqgan-codebook":
-		return ModelDescriptor{ID: id, Path: "vqgan/codebook.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "Weights-only state dictionary containing the VQ embedding matrix"}
+		return ModelDescriptor{ID: id, Path: "bundle-b/vqgan/codebook.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "Weights-only state dictionary containing the VQ embedding matrix"}
 	case "biggan-generator":
-		return ModelDescriptor{ID: id, Path: "biggan/generator.pt", Family: "BigGAN", License: "Checkpoint license applies", Notes: "TorchScript class-conditioned generator accepting latent and class-probability tensors"}
+		return ModelDescriptor{ID: id, Path: "bundle-b/biggan/generator.pt", Family: "BigGAN", License: "Checkpoint license applies", Notes: "TorchScript class-conditioned generator accepting latent and class-probability tensors"}
 	default:
 		return ModelDescriptor{ID: id}
 	}

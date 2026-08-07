@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import re
 from datetime import UTC, datetime
 import types
 from typing import Any, Callable
@@ -30,7 +31,9 @@ import yaml
 
 CLIP_METADATA_KEYS = frozenset({"input_resolution", "context_length", "vocab_size"})
 TAMING_COMMIT = "3ba01b241669f5ade541ce990f7650a3b8f65318"
+TAMING_TREE = "cb6fd749bbad796fdef2dc7e9ad9f680c8ca462c"
 BIGGAN_COMMIT = "1e18aed2dff75db51428f13b940c38b923eb4a3d"
+BIGGAN_TREE = "f9c893ec07560e132e24aad0bf1040394892ced1"
 SOURCE_HASHES = {
     "vgg19.pt": "dcbb9e9dad569fff7a846263a77324fc34978fea2bfb039c012d710e1776ae44",
     "ViT-B-32.pt": "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af",
@@ -73,9 +76,18 @@ def git_commit(source: Path) -> str | None:
     return git_output(source, "rev-parse", "HEAD")
 
 
-def require_pinned_clean_source(source: Path, expected_commit: str, label: str) -> dict[str, str]:
+def require_pinned_clean_source(source: Path, expected_commit: str, expected_tree: str, label: str) -> dict[str, str]:
     if not source.is_dir():
         raise ValueError(f"{label} source checkout does not exist: {source}")
+    marker = source / ".uncanny-source-pin"
+    if marker.is_file() and not (source / ".git").exists():
+        try:
+            pinned = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError(f"invalid {label} bundled source marker") from error
+        if pinned == {"commit": expected_commit, "tree": expected_tree}:
+            return {"path": str(source.resolve()), "commit": expected_commit, "tree": expected_tree}
+        raise ValueError(f"{label} bundled source marker does not match pinned source")
     commit = git_commit(source)
     status = git_output(source, "status", "--porcelain", "--untracked-files=all", "--ignored")
     tree = git_output(source, "rev-parse", "HEAD^{tree}")
@@ -85,6 +97,8 @@ def require_pinned_clean_source(source: Path, expected_commit: str, label: str) 
         raise ValueError(f"{label} source checkout must be clean, including untracked files")
     if tree is None:
         raise ValueError(f"could not determine {label} source tree hash")
+    if tree != expected_tree:
+        raise ValueError(f"{label} source must have tree {expected_tree}")
     return {"path": str(source.resolve()), "commit": commit, "tree": tree}
 
 
@@ -148,10 +162,21 @@ def atomic_artifact(path: Path, writer: Callable[[Path], None], validator: Calla
     try:
         writer(temporary)
         validation = validator(temporary)
+        with temporary.open("rb") as written:
+            os.fsync(written.fileno())
         os.replace(temporary, path)
+        fsync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
     return {"path": str(path), "sha256": sha256(path), "bytes": path.stat().st_size, "validation": validation}
+
+
+def fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def validate_tensor_state(path: Path, expected_key: str, shape: tuple[int, ...]) -> dict[str, Any]:
@@ -278,7 +303,7 @@ def convert_clip(source: Path, output: Path) -> dict[str, Any]:
 def convert_vqgan(source: Path, config_path: Path, output_codebook: Path, output_decoder: Path, taming_source: Path) -> dict[str, Any]:
     require_approved_source(source)
     require_approved_source(config_path)
-    source_tree = require_pinned_clean_source(taming_source, TAMING_COMMIT, "taming-transformers")
+    source_tree = require_pinned_clean_source(taming_source, TAMING_COMMIT, TAMING_TREE, "taming-transformers")
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))["model"]["params"]
     ddconfig = config["ddconfig"]
     Decoder = import_from_source(taming_source, "taming.modules.diffusionmodules.model").Decoder
@@ -308,7 +333,7 @@ def convert_vqgan(source: Path, config_path: Path, output_codebook: Path, output
 def convert_biggan(weights: Path, config_path: Path, output: Path, biggan_source: Path) -> dict[str, Any]:
     require_approved_source(weights)
     require_approved_source(config_path)
-    source_tree = require_pinned_clean_source(biggan_source, BIGGAN_COMMIT, "pytorch-pretrained-BigGAN")
+    source_tree = require_pinned_clean_source(biggan_source, BIGGAN_COMMIT, BIGGAN_TREE, "pytorch-pretrained-BigGAN")
     config_module, model_module = import_biggan_source(biggan_source)
     config = config_module.BigGANConfig.from_json_file(str(config_path))
     model = model_module.BigGAN(config).eval()
@@ -357,6 +382,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vgg-source", type=Path, default=Path("/data/models/classifiers/vgg19.pt"))
     parser.add_argument("--taming-source", type=Path, required=True)
     parser.add_argument("--biggan-source", type=Path, required=True)
+    parser.add_argument("--installer-catalog-version")
+    parser.add_argument("--policy-version")
+    parser.add_argument("--operation-id")
+    parser.add_argument("--policy-accepted-at")
+    parser.add_argument("--app-revision")
+    parser.add_argument("--defer-publication", action="store_true")
     return parser.parse_args()
 
 
@@ -381,17 +412,23 @@ def atomic_symlink(models: Path, version: Path) -> Path:
     os.symlink(str(Path("bundles") / version.name), temporary)
     try:
         os.replace(temporary, target)
+        fsync_directory(models)
     finally:
         temporary.unlink(missing_ok=True)
     return target
 
 
-def publish_bundle(models: Path, build: Callable[[Path], dict[str, Any]]) -> dict[str, Any]:
+def publish_bundle(models: Path, build: Callable[[Path], dict[str, Any]], operation_id: str | None = None, defer_publication: bool = False) -> dict[str, Any]:
     """Build all files in one staging directory, then publish through one symlink swap."""
     models.mkdir(parents=True, exist_ok=True)
+    stable_existing = models / "bundle-b"
+    if stable_existing.exists() and not stable_existing.is_symlink():
+        raise ValueError("models/bundle-b is a physical directory and will not be replaced")
     bundles = models / "bundles"
     bundles.mkdir(parents=True, exist_ok=True)
-    token = uuid4().hex
+    if operation_id is not None and not re.fullmatch(r"[0-9a-f]{32}", operation_id):
+        raise ValueError("installer operation ID must be exactly 32 lowercase hexadecimal characters")
+    token = operation_id or uuid4().hex
     stage = bundles / f".bundle-b-{token}.staging"
     version = bundles / f"bundle-b-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{token[:12]}"
     stage.mkdir(mode=0o750)
@@ -403,7 +440,9 @@ def publish_bundle(models: Path, build: Callable[[Path], dict[str, Any]]) -> dic
         payload = json.dumps(stable_paths(report, stage, models), indent=2, sort_keys=True) + "\n"
         atomic_artifact(provenance, lambda temporary: temporary.write_text(payload, encoding="utf-8"), lambda path: {"json": isinstance(json.loads(path.read_text(encoding="utf-8")), dict)})
         os.replace(stage, version)
-        atomic_symlink(models, version)
+        fsync_directory(bundles)
+        if not defer_publication:
+            atomic_symlink(models, version)
         return stable_paths(report, stage, models)
     except Exception:
         shutil.rmtree(stage, ignore_errors=True)
@@ -430,13 +469,14 @@ def main() -> None:
                 },
             },
             "sources": SOURCE_PROVENANCE,
+            "installer": {"catalog_version": args.installer_catalog_version, "policy_version": args.policy_version, "operation_id": args.operation_id, "policy_accepted_at": args.policy_accepted_at, "app_revision": args.app_revision},
             "vgg19": copy_vgg(args.vgg_source, stage / "classifiers/vgg19.pt"),
             "clip": convert_clip(sources / "ViT-B-32.pt", stage / "clip/vit-b-32.pt"),
             "vqgan": convert_vqgan(sources / "vqgan-imagenet-f16-16384.ckpt", sources / "vqgan-imagenet-f16-16384.yaml", stage / "vqgan/codebook.pt", stage / "vqgan/decoder.pt", args.taming_source),
             "biggan": convert_biggan(sources / "biggan-deep-256.bin", sources / "biggan-deep-256-config.json", stage / "biggan/generator.pt", args.biggan_source),
         }
 
-    report = publish_bundle(models, build)
+    report = publish_bundle(models, build, args.operation_id, args.defer_publication)
     print(json.dumps(report, indent=2, sort_keys=True))
 
 

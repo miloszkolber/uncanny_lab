@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -76,5 +77,13 @@ func TestManifestApplyDefaultsPreservesExplicitValues(t *testing.T) {
 	}
 	if values["iterations"] != float64(1) || values["prompt"] != "default prompt" {
 		t.Fatalf("normalized parameters = %#v", values)
+	}
+}
+
+func TestBuiltinBundleBPaths(t *testing.T) {
+	for _, id := range []string{"vgg19-imagenet", "clip-vit-b-32", "vqgan-decoder", "vqgan-codebook", "biggan-generator"} {
+		if got := builtinModel(id).Path; !strings.HasPrefix(got, "bundle-b/") {
+			t.Fatalf("%s path = %q", id, got)
+		}
 	}
 }

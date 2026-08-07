@@ -65,3 +65,4 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 License source records
 ----------------------
 The module LICENSE files used to prepare these notices are available from the Go module proxy at the exact versions above. modernc.org/libc additionally includes LICENSE-GO, which is covered by the Go Authors BSD 3-Clause notice above. modernc.org/mathutil additionally includes its mersenne subpackage notice, which is reproduced above. The SQLite amalgamation used by modernc.org/sqlite is public-domain software, while the modernc.org/sqlite Go wrapper is distributed under the BSD 3-Clause terms reproduced above.
+Bundle B checkpoint installer: checkpoints are not included in this source tree or container image. The opt-in installer downloads fixed files from their upstreams. The Uncanny Lab MIT license does not license those files. VQGAN and BigGAN checkpoint-specific terms are uncertain. See the installer policy before use.

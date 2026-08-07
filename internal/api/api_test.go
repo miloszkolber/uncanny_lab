@@ -33,6 +33,29 @@ func TestUploadRejectsWrongContentType(t *testing.T) {
 	}
 }
 
+func TestModelInstallerGETIsNoStoreAndDisabledInstallIsRejected(t *testing.T) {
+	a := &API{}
+	get := httptest.NewRecorder()
+	a.modelInstaller(get, httptest.NewRequest(http.MethodGet, "/api/model-installer", nil))
+	if get.Code != http.StatusOK || get.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("GET installer response = %d, cache=%q", get.Code, get.Header().Get("Cache-Control"))
+	}
+	post := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/model-installer/install", bytes.NewBufferString(`{"accepted":true}`))
+	req.Header.Set("Content-Type", "text/plain")
+	a.installModels(post, req)
+	if post.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("wrong content type status = %d", post.Code)
+	}
+	post = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/model-installer/install", bytes.NewBufferString(`{"accepted":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	a.installModels(post, req)
+	if post.Code != http.StatusForbidden {
+		t.Fatalf("disabled installer status = %d", post.Code)
+	}
+}
+
 func TestUploadAcceptsPNGAndNormalizesToken(t *testing.T) {
 	inputs := t.TempDir()
 	a := &API{cfg: config.Config{Paths: config.PathsConfig{Inputs: inputs}}}
@@ -274,11 +297,17 @@ func TestNewJobRejectsUnavailableRequiredModel(t *testing.T) {
 	if _, err := a.newJob(request); err == nil || !strings.Contains(err.Error(), "clip-vit-b-32") {
 		t.Fatalf("newJob error = %v, want missing model", err)
 	}
-	checkpoint := filepath.Join(models, "clip", "vit-b-32.pt")
+	checkpoint := filepath.Join(models, "bundle-b", "clip", "vit-b-32.pt")
 	if err := os.MkdirAll(filepath.Dir(checkpoint), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(checkpoint, []byte("checkpoint"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(models, "registry"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(models, "registry", "clip.json"), []byte(`{"id":"clip-vit-b-32","path":"bundle-b/clip/vit-b-32.pt","sha256":"47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef"}`), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.newJob(request); err != nil {

@@ -37,15 +37,31 @@ fi
 docker run --rm --entrypoint sh "$image" -ec '
     test -f /usr/share/licenses/uncanny-lab/LICENSE
     test -f /usr/share/licenses/uncanny-lab/THIRD_PARTY_NOTICES
-    test ! -e /tools
+    test -f /app/tools/convert_bundle_b.py
+    test -f /app/tools/sitecustomize.py
+    test -d /app/conversion-sources/taming-transformers
+    test -f /app/conversion-sources/taming-transformers/.uncanny-source-pin
+    test -d /app/conversion-sources/pytorch-pretrained-BigGAN
+    test -f /app/conversion-sources/pytorch-pretrained-BigGAN/.uncanny-source-pin
+    test ! -e /app/conversion-sources/taming-transformers/.git
+    test ! -e /app/conversion-sources/pytorch-pretrained-BigGAN/.git
     test ! -e /app/python/tests
     test ! -e /.git
     test ! -e /app/.git
-    test -z "$(find /app /usr/local/bin -type f \( -name "*.pt" -o -name "*.pth" -o -name "*.ckpt" -o -name "*.safetensors" -o -name "*.onnx" \) -print -quit)"
+    test -z "$(find /app /usr/local/bin -type f \( -name "*.pt" -o -name "*.pth" -o -name "*.ckpt" -o -name "*.safetensors" -o -name "*.onnx" -o -name "*.bin" \) -print -quit)"
 '
 
 # This intentionally has no PYTHONPATH, proving that the packaged worker is installed.
 docker run --rm --entrypoint python3 "$image" -m uncanny_lab.runner --self-test --device cpu
+docker run --rm --entrypoint python3 -e PYTHONPATH=/app/tools "$image" -c 'import socket; s=socket.socket();
+try:
+    s.connect(("127.0.0.1", 9))
+except OSError as exc:
+    assert str(exc) == "network access is disabled during model conversion"
+else:
+    raise AssertionError("socket connect was not blocked")
+finally:
+    s.close()'
 
 chmod 777 "$data_dir"
 docker run --rm --user root --entrypoint chown -v "$data_dir:/data" "$image" -R 1000:1000 /data >/dev/null

@@ -33,6 +33,7 @@ import (
 	"github.com/miloszkolber/uncanny-lab/internal/engines"
 	"github.com/miloszkolber/uncanny-lab/internal/events"
 	"github.com/miloszkolber/uncanny-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/modelinstall"
 	"github.com/miloszkolber/uncanny-lab/internal/orchestrator"
 	webassets "github.com/miloszkolber/uncanny-lab/web"
 )
@@ -45,6 +46,7 @@ type API struct {
 	version      string
 	logger       *slog.Logger
 	registry     *engines.Registry
+	installer    *modelinstall.Manager
 	verifySem    chan struct{}
 	systemMu     sync.Mutex
 	systemCache  map[string]any
@@ -55,7 +57,7 @@ var jobIDPattern = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
 var uploadIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var previewPathPattern = regexp.MustCompile(`^previews/[0-9]{6}\.png$`)
 
-func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *events.Broker, cfg config.Config, version string, logger *slog.Logger) (http.Handler, error) {
+func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *events.Broker, cfg config.Config, version string, logger *slog.Logger, installer *modelinstall.Manager) (http.Handler, error) {
 	static, err := webassets.Handler()
 	if err != nil {
 		return nil, err
@@ -64,11 +66,14 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	if err != nil {
 		return nil, err
 	}
-	a := &API{repo: repo, orchestrator: runner, broker: broker, cfg: cfg, version: version, logger: logger, registry: registry, verifySem: make(chan struct{}, 2)}
+	a := &API{repo: repo, orchestrator: runner, broker: broker, cfg: cfg, version: version, logger: logger, registry: registry, verifySem: make(chan struct{}, 2), installer: installer}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.health)
 	mux.HandleFunc("GET /api/engines", a.engines)
 	mux.HandleFunc("GET /api/models", a.models)
+	mux.HandleFunc("GET /api/model-installer", a.modelInstaller)
+	mux.HandleFunc("POST /api/model-installer/install", a.installModels)
+	mux.HandleFunc("POST /api/model-installer/cancel", a.cancelInstall)
 	mux.HandleFunc("POST /api/models/{id}/verify", a.verifyModel)
 	mux.HandleFunc("POST /api/uploads", a.upload)
 	mux.HandleFunc("GET /api/uploads/{token}", a.getUpload)
@@ -85,6 +90,117 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	mux.HandleFunc("GET /artifacts/{id}/{path...}", a.artifact)
 	mux.Handle("/", static)
 	return securityHeaders(requestLog(logger, hostGuard(cfg.Server.AllowedHosts, mux))), nil
+}
+
+func (a *API) modelInstaller(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if a.installer == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"enabled": false, "capability": map[string]any{"available": false, "message": "Installer is unavailable"}})
+		return
+	}
+	available := a.installer.Enabled()
+	message := "Checkpoint downloads are disabled"
+	if available {
+		message = "Bundle B installer is available"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": available, "capability": map[string]any{"available": available, "message": message}, "policy": map[string]string{"version": modelinstall.PolicyVersion, "text": modelinstall.PolicyText}, "catalog": map[string]any{"version": modelinstall.CatalogVersion, "files": modelinstall.Sources, "repositories": modelinstall.Repos, "outputs": modelinstall.Outputs, "estimated_disk_bytes": int64(6 << 30)}, "operation": a.installer.Latest(), "installed": a.installer.Installed()})
+}
+
+type installRequest struct {
+	Accepted      bool   `json:"accepted"`
+	PolicyVersion string `json:"policy_version"`
+}
+type cancelInstallRequest struct {
+	OperationID string `json:"operation_id"`
+}
+
+func (a *API) installModels(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, 403, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	if !isJSONContentType(r) {
+		writeError(w, 415, "INVALID_CONTENT_TYPE", "Content-Type must be application/json")
+		return
+	}
+	if a.installer == nil || !a.installer.Enabled() {
+		writeError(w, 403, "DOWNLOADS_DISABLED", "Checkpoint downloads are disabled")
+		return
+	}
+	var q installRequest
+	if err := decodeSmallJSON(w, r, &q); err != nil {
+		return
+	}
+	if !q.Accepted {
+		writeError(w, 400, "POLICY_NOT_ACCEPTED", "Policy acceptance is required")
+		return
+	}
+	if q.PolicyVersion != modelinstall.PolicyVersion {
+		writeError(w, 409, "STALE_POLICY", "Reload the policy before installing")
+		return
+	}
+	op, err := a.installer.Start(time.Now().UTC())
+	if err != nil {
+		a.installError(w, err)
+		return
+	}
+	writeJSON(w, 202, op)
+}
+func (a *API) cancelInstall(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		writeError(w, 403, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
+		return
+	}
+	if !isJSONContentType(r) {
+		writeError(w, 415, "INVALID_CONTENT_TYPE", "Content-Type must be application/json")
+		return
+	}
+	var q cancelInstallRequest
+	if err := decodeSmallJSON(w, r, &q); err != nil {
+		return
+	}
+	if a.installer == nil {
+		writeError(w, 503, "INSTALLER_UNAVAILABLE", "Installer is unavailable")
+		return
+	}
+	if err := a.installer.Cancel(q.OperationID); err != nil {
+		writeError(w, 409, "CANNOT_CANCEL", "No matching active installation")
+		return
+	}
+	writeJSON(w, 202, map[string]string{"status": "cancelling"})
+}
+func isJSONContentType(r *http.Request) bool {
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && media == "application/json"
+}
+func (a *API) installError(w http.ResponseWriter, e error) {
+	switch {
+	case errors.Is(e, modelinstall.ErrDisabled):
+		writeError(w, 403, "DOWNLOADS_DISABLED", "Checkpoint downloads are disabled")
+	case errors.Is(e, modelinstall.ErrStorage):
+		writeError(w, 507, "INSUFFICIENT_STORAGE", "At least 6 GiB free space is required")
+	case errors.Is(e, modelinstall.ErrAlreadyInstalled):
+		writeError(w, 409, "ALREADY_INSTALLED", "Bundle B is already installed for this catalog")
+	case errors.Is(e, modelinstall.ErrActive), errors.Is(e, modelinstall.ErrPhysicalBundle):
+		writeError(w, 409, "INSTALLATION_CONFLICT", "An installation or non-atomic bundle already exists")
+	default:
+		a.logger.Error("start installer", "error", e)
+		writeError(w, 503, "INSTALLER_UNAVAILABLE", "Installer is unavailable")
+	}
+}
+func decodeSmallJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, 1024)
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields()
+	if e := d.Decode(target); e != nil {
+		writeError(w, 400, "INVALID_JSON", "Request body must contain valid JSON")
+		return e
+	}
+	if e := d.Decode(&struct{}{}); !errors.Is(e, io.EOF) {
+		writeError(w, 400, "INVALID_JSON", "Request body must contain one JSON object")
+		return errors.New("trailing data")
+	}
+	return nil
 }
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {

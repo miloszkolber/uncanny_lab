@@ -67,4 +67,32 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	if strings.Contains(string(body), "/ui/") {
 		t.Error("index references an external UI asset")
 	}
+	for _, expected := range []string{
+		`id="bundle-installer"`,
+		`id="installer-dialog"`,
+		`id="installer-acknowledgement"`,
+		`id="installer-confirm"`,
+		`id="installer-dialog-policy"`,
+		`role="dialog"`,
+	} {
+		if !strings.Contains(string(body), expected) {
+			t.Errorf("index does not contain installer control %q", expected)
+		}
+	}
+	app, err := assets.ReadFile("static/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`/api/model-installer`,
+		`/api/model-installer/install`,
+		`/api/model-installer/cancel`,
+		`policy_version: version`,
+		`operation_id: operationID`,
+		`document.createElement("progress")`,
+	} {
+		if !strings.Contains(string(app), expected) {
+			t.Errorf("installer frontend does not contain %q", expected)
+		}
+	}
 }

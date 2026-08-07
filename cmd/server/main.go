@@ -17,10 +17,12 @@ import (
 	"github.com/miloszkolber/uncanny-lab/internal/config"
 	"github.com/miloszkolber/uncanny-lab/internal/database"
 	"github.com/miloszkolber/uncanny-lab/internal/events"
+	"github.com/miloszkolber/uncanny-lab/internal/modelinstall"
 	"github.com/miloszkolber/uncanny-lab/internal/orchestrator"
 )
 
 var version = "development"
+var revision = "unknown"
 
 func main() {
 	configPath := flag.String("config", "/config/config.yaml", "configuration file")
@@ -59,7 +61,12 @@ func main() {
 	runner.Start()
 	defer runner.Stop()
 
-	handler, err := api.New(repo, runner, broker, cfg, version, logger)
+	installer, err := modelinstall.New(cfg.CheckpointDownloads.Enabled, cfg.Paths.Workspace, cfg.Paths.Models, revision, logger)
+	if err != nil {
+		logger.Error("create model installer", "error", err)
+		os.Exit(1)
+	}
+	handler, err := api.New(repo, runner, broker, cfg, version, logger, installer)
 	if err != nil {
 		logger.Error("create HTTP handler", "error", err)
 		os.Exit(1)
@@ -101,6 +108,9 @@ func main() {
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "shutdown:", err)
+	}
+	if err := installer.Close(ctx); err != nil {
+		logger.Error("stop model installer", "error", err)
 	}
 }
 

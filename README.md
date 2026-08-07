@@ -7,7 +7,7 @@ Uncanny Lab is a local playground for early, pre-diffusion image-generation algo
 - Local, one-worker image-generation queue with saved previews, artifacts, and history
 - Text-to-image and image-to-image optimization workflows
 - Intel XPU runtime with a CPU-only development mode
-- No checkpoint downloads by the application or container
+- Checkpoint downloads are disabled by default
 
 ## Supported engines
 
@@ -20,7 +20,9 @@ Deep Image Prior needs no checkpoint. The other engines remain unavailable until
 
 ## Checkpoints
 
-Download checkpoints yourself, verify their terms, and convert them before use. Recommended sources are [TorchVision VGG19](https://download.pytorch.org/models/vgg19-dcbb9e9d.pth), [official OpenAI CLIP ViT-B/32](https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt), [CompVis VQGAN ImageNet f16/16384](https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fckpts%2Flast.ckpt&dl=1), and [Hugging Face BigGAN-deep-256](https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-pytorch_model.bin).
+Use the opt-in UI installer or download and convert checkpoints manually. In either case, verify their terms before use. Recommended sources are [TorchVision VGG19](https://download.pytorch.org/models/vgg19-dcbb9e9d.pth), [official OpenAI CLIP ViT-B/32](https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt), [CompVis VQGAN ImageNet f16/16384](https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fckpts%2Flast.ckpt&dl=1), and [Hugging Face BigGAN-deep-256](https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-pytorch_model.bin).
+
+An administrator can opt in to the browser’s single Bundle B installer with `UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS=true`. The UI shows the fixed upstream files, hashes, bundled pinned conversion sources, and policy before it starts. It downloads and converts locally into the mounted data directory, never into the image. Uncanny Lab is MIT, but that does not cover checkpoints. You remain responsible for permissions. VQGAN and BigGAN checkpoint-specific terms are uncertain, and generated images may involve other rights.
 
 The original files are not runtime-ready. Convert them with `tools/convert_bundle_b.py` and its documented pinned conversion sources. The resulting layout under the data directory must be:
 
@@ -53,14 +55,14 @@ git -C pytorch-pretrained-BigGAN checkout 1e18aed2dff75db51428f13b940c38b923eb4a
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint python3 \
   -e PYTHONPATH=/workspace/python -v "$PWD:/workspace:ro" -v "$PWD/data:/data" \
   -v "$PWD/taming-transformers:/sources/taming:ro" -v "$PWD/pytorch-pretrained-BigGAN:/sources/biggan:ro" \
-  -w /workspace ghcr.io/miloszkolber/uncanny-lab:0.1 tools/convert_bundle_b.py \
+  -w /workspace ghcr.io/miloszkolber/uncanny-lab:0.2 tools/convert_bundle_b.py \
   --sources /data/model-sources --models /data/models --vgg-source /data/models/classifiers/vgg19.pt \
   --taming-source /sources/taming --biggan-source /sources/biggan
 ```
 
 ## Quick start
 
-The current image release is `0.1`. Image builds and publication are manual GitHub Actions dispatches.
+The current image release is `0.2`. Image builds and publication are manual GitHub Actions dispatches.
 
 For Intel XPU, create a persistent data directory, provide access to the render device, and start Compose:
 
@@ -85,15 +87,16 @@ Open `http://localhost:8080`. The browser UI communicates with its own local bac
 
 ## Minimal configuration
 
-Compose defaults to `ghcr.io/miloszkolber/uncanny-lab:0.1`, stores persistent state in `./data`, and binds HTTP to `127.0.0.1:8080`. Set only the variables you need in the shell or a local `.env` file:
+Compose defaults to `ghcr.io/miloszkolber/uncanny-lab:0.2`, stores persistent state in `./data`, and binds HTTP to `127.0.0.1:8080`. Set only the variables you need in the shell or a local `.env` file:
 
 ```text
-UNCANNY_IMAGE=ghcr.io/miloszkolber/uncanny-lab:0.1
+UNCANNY_IMAGE=ghcr.io/miloszkolber/uncanny-lab:0.2
 UNCANNY_DATA_DIR=./data
 UNCANNY_UID=1000
 UNCANNY_GID=1000
 UNCANNY_PORT=8080
 UNCANNY_DEVICE=xpu
+UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS=false
 ```
 
 For XPU hosts, `UNCANNY_RENDER_DEVICE` defaults to `/dev/dri/renderD128` and `RENDER_GID` must be the group allowed to use that device. Use the CPU Compose override instead of mapping a device when no XPU is available. Set `UNCANNY_BIND_ADDRESS` and `UNCANNY_ALLOWED_HOSTS` deliberately when placing the service behind a reverse proxy.

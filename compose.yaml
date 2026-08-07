@@ -1,6 +1,6 @@
 services:
     uncanny-lab:
-        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.1}"
+        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.2}"
         restart: unless-stopped
         user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
         read_only: true
@@ -25,6 +25,7 @@ services:
             HF_HUB_OFFLINE: "1"
             HF_HUB_DISABLE_TELEMETRY: "1"
             UNCANNY_PORT: "${UNCANNY_PORT:-8080}"
+            UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS: "${UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS:-false}"
             UNCANNY_ALLOWED_HOSTS: "${UNCANNY_ALLOWED_HOSTS:-localhost:${UNCANNY_PORT:-8080},127.0.0.1:${UNCANNY_PORT:-8080},[::1]:${UNCANNY_PORT:-8080}}"
         volumes:
             - "${UNCANNY_DATA_DIR:-./data}:/data"

@@ -69,6 +69,26 @@ func TestLoadRejectsInvalidConfiguredDevice(t *testing.T) {
 	}
 }
 
+func TestCheckpointDownloadsDefaultFalseAndStrictEnvironment(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing.yaml")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.CheckpointDownloads.Enabled {
+		t.Fatal("checkpoint downloads defaulted to enabled")
+	}
+	t.Setenv("UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS", "true")
+	cfg, err = Load(path)
+	if err != nil || !cfg.CheckpointDownloads.Enabled {
+		t.Fatalf("enabled config = %#v, %v", cfg.CheckpointDownloads, err)
+	}
+	t.Setenv("UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS", "perhaps")
+	if _, err := Load(path); err == nil {
+		t.Fatal("invalid checkpoint environment value was accepted")
+	}
+}
+
 func TestLoadRejectsUnknownFields(t *testing.T) {
 	for name, content := range map[string]string{
 		"obsolete UI library": "paths:\n  ui_library: /ui-library\n",

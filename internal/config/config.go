@@ -15,10 +15,11 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig  `yaml:"server"`
-	Runtime  RuntimeConfig `yaml:"runtime"`
-	Paths    PathsConfig   `yaml:"paths"`
-	Previews PreviewConfig `yaml:"previews"`
+	Server              ServerConfig              `yaml:"server"`
+	Runtime             RuntimeConfig             `yaml:"runtime"`
+	Paths               PathsConfig               `yaml:"paths"`
+	Previews            PreviewConfig             `yaml:"previews"`
+	CheckpointDownloads CheckpointDownloadsConfig `yaml:"checkpoint_downloads"`
 }
 
 type ServerConfig struct {
@@ -49,12 +50,19 @@ type PreviewConfig struct {
 	EverySteps int  `yaml:"every_steps"`
 }
 
+// CheckpointDownloads is deliberately opt-in. A non-boolean environment value
+// is an error rather than a surprising enablement.
+type CheckpointDownloadsConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
 func defaults() Config {
 	return Config{
-		Server:   ServerConfig{Host: "0.0.0.0", Port: 8080},
-		Runtime:  RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/opt/venv/lib/python3.12/site-packages"},
-		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines"},
-		Previews: PreviewConfig{Enabled: true, EverySteps: 5},
+		Server:              ServerConfig{Host: "0.0.0.0", Port: 8080},
+		Runtime:             RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/opt/venv/lib/python3.12/site-packages"},
+		Paths:               PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines"},
+		Previews:            PreviewConfig{Enabled: true, EverySteps: 5},
+		CheckpointDownloads: CheckpointDownloadsConfig{Enabled: false},
 	}
 }
 
@@ -83,6 +91,13 @@ func Load(path string) (Config, error) {
 	}
 	if value, ok := os.LookupEnv("UNCANNY_DEVICE"); ok {
 		cfg.Runtime.Device = strings.ToLower(strings.TrimSpace(value))
+	}
+	if value, ok := os.LookupEnv("UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS"); ok {
+		enabled, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return Config{}, fmt.Errorf("parse UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS: %w", err)
+		}
+		cfg.CheckpointDownloads.Enabled = enabled
 	}
 	allowedHostsValue, allowedHostsConfigured := os.LookupEnv("UNCANNY_ALLOWED_HOSTS")
 	if allowedHostsConfigured && strings.TrimSpace(allowedHostsValue) == "" {

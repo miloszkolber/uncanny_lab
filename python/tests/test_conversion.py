@@ -68,6 +68,38 @@ class ConversionToolTests(unittest.TestCase):
             self.assertEqual(len(list((models / "bundles").glob("bundle-b-*"))), 1)
             self.assertEqual(list((models / "bundles").glob(".bundle-b-*.staging")), [])
 
+    def test_bundle_publication_refuses_physical_stable_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            models = Path(directory) / "models"
+            (models / "bundle-b").mkdir(parents=True)
+            with self.assertRaisesRegex(ValueError, "physical directory"):
+                converter.publish_bundle(models, lambda stage: {})
+
+    def test_packaged_source_marker_is_accepted_and_tampering_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            (source / ".uncanny-source-pin").write_text('{"commit":"abc","tree":"def"}', encoding="utf-8")
+            self.assertEqual(converter.require_pinned_clean_source(source, "abc", "def", "test")["tree"], "def")
+            (source / ".uncanny-source-pin").write_text('{"commit":"abc","tree":"bad"}', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "marker"):
+                converter.require_pinned_clean_source(source, "abc", "def", "test")
+
+    def test_explicit_invalid_operation_id_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "operation ID"):
+                converter.publish_bundle(Path(directory) / "models", lambda stage: {}, "not-an-operation-id")
+
+    def test_deferred_publication_keeps_stable_target_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            models = Path(directory) / "models"
+            old = models / "bundles" / "bundle-b-old"
+            old.mkdir(parents=True)
+            (models / "bundle-b").symlink_to(Path("bundles") / old.name)
+            report = converter.publish_bundle(models, lambda stage: {"artifact": {"path": str(stage / "x")}}, "0123456789abcdef0123456789abcdef", True)
+            self.assertEqual((models / "bundle-b").readlink(), Path("bundles") / old.name)
+            self.assertTrue(Path(report["publication"]["version"]).is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()
