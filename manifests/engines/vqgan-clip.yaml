@@ -1,10 +1,10 @@
 id: vqgan-clip
 name: VQGAN + CLIP
 type: text-to-image
-version: 1.0.0
-description: Optimizes a portable TorchScript generator latent against local CLIP guidance.
-enabled: false
-models: [clip-vit-b-32, vqgan-portable]
+version: 1.1.0
+description: Optimizes a continuous latent grid through VQ codebook quantization and a portable decoder under local CLIP guidance.
+enabled: true
+models: [clip-vit-b-32, vqgan-decoder, vqgan-codebook]
 capabilities:
   prompt: true
   seed: true
@@ -12,13 +12,16 @@ capabilities:
   intermediate_frames: true
 runtime:
   device: [xpu, cpu]
-  precision: [fp32, fp16]
+  precision: [fp32]
 parameters:
   prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "a recursive painted machine"}
-  generator_path: {type: string, title: VQGAN TorchScript generator, group: Basic, default: /data/models/vqgan/generator.pt}
+  decoder_path: {type: string, title: VQGAN TorchScript decoder, group: Basic, default: /data/models/vqgan/decoder.pt}
+  codebook_path: {type: string, title: VQGAN codebook, group: Basic, default: /data/models/vqgan/codebook.pt}
   clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
   clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
-  latent_channels: {type: integer, title: Latent channels, group: Expert, default: 256, min: 1, max: 4096}
+  latent_width: {type: integer, title: Latent width, group: Expert, default: 16, min: 1, max: 128}
+  latent_height: {type: integer, title: Latent height, group: Expert, default: 16, min: 1, max: 128}
+  commitment_weight: {type: number, title: Codebook commitment, group: Expert, default: 0.1, min: 0, max: 10}
   width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
   height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}
   iterations: {type: integer, title: Iterations, group: Basic, default: 300, min: 1, max: 2000}

@@ -9,6 +9,8 @@ The application deliberately focuses on visible optimization, unstable represent
 | Workflow | Engine | Local assets |
 | --- | --- | --- |
 | Text to image | Deep Daze | OpenCLIP ViT-B-32 state dictionary |
+| Text to image | VQGAN + CLIP | OpenCLIP state dictionary, VQ codebook, and portable TorchScript decoder |
+| Text to image | Big Sleep | OpenCLIP state dictionary and portable class-conditioned BigGAN generator |
 | Image to image | Neural Style Transfer | TorchVision-compatible VGG19 state dictionary |
 | Image to image | DeepDream | TorchVision-compatible VGG19 state dictionary |
 | Image to image | Activation Maximization | TorchVision-compatible VGG19 state dictionary |
@@ -21,11 +23,12 @@ Expected default paths inside the data volume:
 ```text
 /data/models/classifiers/vgg19.pt
 /data/models/clip/vit-b-32.pt
+/data/models/vqgan/decoder.pt
+/data/models/vqgan/codebook.pt
+/data/models/biggan/generator.pt
 ```
 
-VGG files must contain a TorchVision-compatible VGG19 `state_dict`. CLIP files must contain an OpenCLIP `ViT-B-32` `state_dict`.
-
-VQGAN + CLIP and Big Sleep manifests remain disabled. A generic TorchScript latent adapter exists for development, but it is not presented as either historical algorithm because it does not implement VQGAN codebook optimization or BigGAN class conditioning. Those names will be enabled only with faithful portable adapters and representative model validation.
+VGG files must contain a TorchVision-compatible VGG19 `state_dict`. CLIP files must contain an OpenCLIP `ViT-B-32` `state_dict`. The VQGAN decoder accepts a quantized BCHW embedding grid and returns BCHW RGB while its codebook is a weights-only state dictionary containing one `[codes, channels]` embedding tensor. The BigGAN generator accepts both a latent tensor and class-probability tensor, preserving class-conditioned optimization rather than treating BigGAN as an unconditional decoder.
 
 Optional model descriptors live at `/data/models/registry/<id>.json`:
 

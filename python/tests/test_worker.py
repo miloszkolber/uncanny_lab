@@ -11,6 +11,7 @@ from pathlib import Path
 from uncanny_lab.common.images import write_rgb_png
 from uncanny_lab.engines.test_pattern import TestPatternEngine
 from uncanny_lab.engines.dip import DeepImagePriorEngine, build_network
+from uncanny_lab.engines.clip import freeze, vector_quantize
 from uncanny_lab.errors import WorkerError
 from uncanny_lab.runner import run
 from uncanny_lab.runtime.device import Runtime, torch
@@ -74,6 +75,23 @@ class WorkerTests(unittest.TestCase):
         normalized = normalize_vgg(torch.zeros((1, 3, 1, 1)))
         expected = torch.tensor([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225])
         torch.testing.assert_close(normalized.view(3), expected)
+
+    @unittest.skipIf(__import__("importlib").util.find_spec("torch") is None, "torch is not installed")
+    def test_vector_quantization_uses_nearest_code_with_straight_gradient(self) -> None:
+        latent = torch.tensor([[[[0.9]], [[0.1]]]], requires_grad=True)
+        codebook = torch.tensor([[0.0, 0.0], [1.0, 0.0]])
+        quantized = vector_quantize(latent, codebook)
+        torch.testing.assert_close(quantized.detach().view(2), torch.tensor([1.0, 0.0]))
+        quantized.sum().backward()
+        torch.testing.assert_close(latent.grad, torch.ones_like(latent))
+
+    @unittest.skipIf(__import__("importlib").util.find_spec("torch") is None, "torch is not installed")
+    def test_frozen_models_backpropagate_only_to_inputs(self) -> None:
+        model = freeze(torch.nn.Linear(2, 1))
+        value = torch.ones((1, 2), requires_grad=True)
+        model(value).sum().backward()
+        self.assertIsNotNone(value.grad)
+        self.assertTrue(all(parameter.grad is None and not parameter.requires_grad for parameter in model.parameters()))
 
 
 if __name__ == "__main__":

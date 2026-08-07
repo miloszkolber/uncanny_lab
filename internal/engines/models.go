@@ -167,10 +167,12 @@ func builtinModel(id string) ModelDescriptor {
 		return ModelDescriptor{ID: id, Path: "classifiers/vgg19.pt", Family: "Classifiers", License: "Checkpoint license applies", Notes: "TorchVision-compatible VGG19 state_dict"}
 	case "clip-vit-b-32":
 		return ModelDescriptor{ID: id, Path: "clip/vit-b-32.pt", Family: "CLIP", License: "Checkpoint license applies", Notes: "OpenCLIP ViT-B-32 state_dict"}
-	case "vqgan-portable":
-		return ModelDescriptor{ID: id, Path: "vqgan/generator.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "TorchScript generator accepting a latent vector and returning BCHW RGB"}
-	case "biggan-portable":
-		return ModelDescriptor{ID: id, Path: "biggan/generator.pt", Family: "BigGAN", License: "Checkpoint license applies", Notes: "TorchScript generator accepting a latent vector and returning BCHW RGB"}
+	case "vqgan-decoder":
+		return ModelDescriptor{ID: id, Path: "vqgan/decoder.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "TorchScript decoder accepting a quantized BCHW embedding grid"}
+	case "vqgan-codebook":
+		return ModelDescriptor{ID: id, Path: "vqgan/codebook.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "Weights-only state dictionary containing the VQ embedding matrix"}
+	case "biggan-generator":
+		return ModelDescriptor{ID: id, Path: "biggan/generator.pt", Family: "BigGAN", License: "Checkpoint license applies", Notes: "TorchScript class-conditioned generator accepting latent and class-probability tensors"}
 	default:
 		return ModelDescriptor{ID: id}
 	}
