@@ -604,6 +604,11 @@ func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 	if len(missing) > 0 {
 		return jobs.Job{}, fmt.Errorf("required models are unavailable: %s", strings.Join(missing, ", "))
 	}
+	parameters, err := manifest.ApplyDefaults(request.Parameters)
+	if err != nil {
+		return jobs.Job{}, err
+	}
+	request.Parameters = parameters
 	now := time.Now().UTC()
 	id, err := jobs.NewID(now)
 	if err != nil {

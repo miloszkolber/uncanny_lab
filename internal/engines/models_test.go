@@ -1,6 +1,7 @@
 package engines
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,5 +58,23 @@ func TestModelListingEnforcesConfiguredHash(t *testing.T) {
 	}
 	if len(models) != 1 || models[0].Status != "invalid" || models[0].Hash == "" {
 		t.Fatalf("configured hash was not enforced: %+v", models)
+	}
+}
+
+func TestManifestApplyDefaultsPreservesExplicitValues(t *testing.T) {
+	manifest := Manifest{Parameters: map[string]interface{}{
+		"iterations": map[string]interface{}{"type": "integer", "default": 250},
+		"prompt":     map[string]interface{}{"type": "string", "default": "default prompt"},
+	}}
+	normalized, err := manifest.ApplyDefaults(json.RawMessage(`{"iterations":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values map[string]interface{}
+	if err := json.Unmarshal(normalized, &values); err != nil {
+		t.Fatal(err)
+	}
+	if values["iterations"] != float64(1) || values["prompt"] != "default prompt" {
+		t.Fatalf("normalized parameters = %#v", values)
 	}
 }

@@ -1,8 +1,8 @@
 id: big-sleep
 name: Big Sleep
 type: text-to-image
-version: 1.1.0
-description: Optimizes BigGAN latent and class probabilities through a portable class-conditioned generator under local CLIP guidance.
+version: 1.2.0
+description: Optimizes BigGAN latent and class probabilities through a portable class-conditioned generator under faithful original OpenAI QuickGELU CLIP guidance.
 enabled: true
 models: [clip-vit-b-32, biggan-generator]
 capabilities:
@@ -15,11 +15,9 @@ runtime:
   precision: [fp32]
 parameters:
   prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "an ImageNet chimera"}
-  generator_path: {type: string, title: BigGAN TorchScript generator, group: Basic, default: /data/models/biggan/generator.pt}
-  clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
+  generator_path: {type: string, title: BigGAN TorchScript generator, group: Basic, default: /data/models/bundle-b/biggan/generator.pt}
+  clip_checkpoint: {type: string, title: OpenAI CLIP QuickGELU checkpoint, group: Basic, default: /data/models/bundle-b/clip/vit-b-32.pt}
   clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
-  latent_channels: {type: integer, title: Latent channels, group: Expert, default: 128, min: 1, max: 4096}
-  class_count: {type: integer, title: Class count, group: Expert, default: 1000, min: 2, max: 10000}
   class_entropy_weight: {type: number, title: Class entropy penalty, group: Expert, default: 0.01, min: 0, max: 10}
   width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
   height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}

@@ -1,8 +1,8 @@
 id: deep-daze
 name: Deep Daze
 type: text-to-image
-version: 1.1.0
-description: Optimizes an implicit coordinate network against a local CLIP model.
+version: 1.2.0
+description: Optimizes an implicit coordinate network against faithful original OpenAI QuickGELU CLIP guidance.
 enabled: true
 models: [clip-vit-b-32]
 capabilities:
@@ -15,7 +15,7 @@ runtime:
   precision: [fp32]
 parameters:
   prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "an uncanny architectural organism"}
-  clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
+  clip_checkpoint: {type: string, title: OpenAI CLIP QuickGELU checkpoint, group: Basic, default: /data/models/bundle-b/clip/vit-b-32.pt}
   clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
   width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
   height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}

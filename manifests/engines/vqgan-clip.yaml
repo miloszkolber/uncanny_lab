@@ -1,8 +1,8 @@
 id: vqgan-clip
 name: VQGAN + CLIP
 type: text-to-image
-version: 1.1.0
-description: Optimizes a continuous latent grid through VQ codebook quantization and a portable decoder under local CLIP guidance.
+version: 1.2.0
+description: Optimizes a continuous latent grid through VQ codebook quantization and a portable decoder under faithful original OpenAI QuickGELU CLIP guidance.
 enabled: true
 models: [clip-vit-b-32, vqgan-decoder, vqgan-codebook]
 capabilities:
@@ -15,9 +15,9 @@ runtime:
   precision: [fp32]
 parameters:
   prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "a recursive painted machine"}
-  decoder_path: {type: string, title: VQGAN TorchScript decoder, group: Basic, default: /data/models/vqgan/decoder.pt}
-  codebook_path: {type: string, title: VQGAN codebook, group: Basic, default: /data/models/vqgan/codebook.pt}
-  clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
+  decoder_path: {type: string, title: VQGAN TorchScript decoder, group: Basic, default: /data/models/bundle-b/vqgan/decoder.pt}
+  codebook_path: {type: string, title: VQGAN codebook, group: Basic, default: /data/models/bundle-b/vqgan/codebook.pt}
+  clip_checkpoint: {type: string, title: OpenAI CLIP QuickGELU checkpoint, group: Basic, default: /data/models/bundle-b/clip/vit-b-32.pt}
   clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
   latent_width: {type: integer, title: Latent width, group: Expert, default: 16, min: 1, max: 128}
   latent_height: {type: integer, title: Latent height, group: Expert, default: 16, min: 1, max: 128}

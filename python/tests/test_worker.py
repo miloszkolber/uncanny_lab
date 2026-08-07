@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import types
 from unittest.mock import patch
 from argparse import Namespace
 from contextlib import redirect_stdout
@@ -13,12 +14,12 @@ import yaml
 from uncanny_lab.common.images import write_rgb_png
 from uncanny_lab.engines.test_pattern import TestPatternEngine
 from uncanny_lab.engines.dip import DeepImagePriorEngine, build_network
-from uncanny_lab.engines.clip import freeze, vector_quantize
+from uncanny_lab.engines.clip import BigSleepEngine, freeze, load_codebook, open_clip_model, validate_biggan_output, validate_vqgan_output, vector_quantize
 from uncanny_lab.engines import ENGINES
 from uncanny_lab.errors import WorkerError
 from uncanny_lab.runner import run
 from uncanny_lab.runtime.device import Runtime, torch
-from uncanny_lab.common.models import normalize_vgg
+from uncanny_lab.common.models import VGGFeatures, load_vgg, normalize_vgg
 
 
 class WorkerTests(unittest.TestCase):
@@ -98,12 +99,67 @@ class WorkerTests(unittest.TestCase):
         torch.testing.assert_close(latent.grad, torch.ones_like(latent))
 
     @unittest.skipIf(__import__("importlib").util.find_spec("torch") is None, "torch is not installed")
+    def test_codebook_rejects_noncanonical_key_or_shape(self) -> None:
+        with patch("uncanny_lab.engines.clip.load_state_dict", return_value={"codebook.weight": torch.zeros((16384, 256))}):
+            with self.assertRaisesRegex(WorkerError, "exactly embedding.weight"):
+                load_codebook(Path("/unused"), "cpu")
+        with patch("uncanny_lab.engines.clip.load_state_dict", return_value={"embedding.weight": torch.zeros((2, 256))}):
+            with self.assertRaisesRegex(WorkerError, r"\[16384,256\]"):
+                load_codebook(Path("/unused"), "cpu")
+
+    def test_biggan_rejects_incompatible_fixed_interface_controls(self) -> None:
+        with patch("uncanny_lab.engines.clip.clip_parameters", return_value={}):
+            with self.assertRaisesRegex(WorkerError, "latent_channels must be between 128 and 128"):
+                BigSleepEngine().validate({"latent_channels": 127})
+            with self.assertRaisesRegex(WorkerError, "class_count must be between 1000 and 1000"):
+                BigSleepEngine().validate({"class_count": 999})
+
+    def test_vgg_rejects_single_missing_feature_tensor(self) -> None:
+        state = VGGFeatures().state_dict()
+        del state["features.34.bias"]
+        with patch("uncanny_lab.common.models.load_state_dict", return_value=state):
+            with self.assertRaisesRegex(WorkerError, "complete TorchVision VGG19"):
+                load_vgg(Path("/unused"), "cpu")
+
+    def test_portable_generators_require_exact_output_contracts(self) -> None:
+        latent = torch.zeros((1, 256, 8, 12))
+        validate_vqgan_output(torch.zeros((1, 3, 128, 192)), latent)
+        with self.assertRaisesRegex(WorkerError, "16x spatial scale"):
+            validate_vqgan_output(torch.zeros((1, 3, 64, 96)), latent)
+        z = torch.zeros((1, 128))
+        validate_biggan_output(torch.zeros((1, 3, 256, 256)), z)
+        with self.assertRaisesRegex(WorkerError, "BigGAN-deep-256"):
+            validate_biggan_output(torch.zeros((1, 3, 128, 128)), z)
+
+    @unittest.skipIf(__import__("importlib").util.find_spec("torch") is None, "torch is not installed")
     def test_frozen_models_backpropagate_only_to_inputs(self) -> None:
         model = freeze(torch.nn.Linear(2, 1))
         value = torch.ones((1, 2), requires_grad=True)
         model(value).sum().backward()
         self.assertIsNotNone(value.grad)
         self.assertTrue(all(parameter.grad is None and not parameter.requires_grad for parameter in model.parameters()))
+
+    @unittest.skipIf(__import__("importlib").util.find_spec("torch") is None, "torch is not installed")
+    def test_openai_clip_uses_quick_gelu_and_strict_state_loading(self) -> None:
+        class FakeCLIP(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.weight = torch.nn.Parameter(torch.ones(1))
+            def encode_text(self, tokens):
+                return self.weight.expand(tokens.shape[0], 1)
+            def load_state_dict(self, state, strict=True):
+                created["strict"] = strict
+                return super().load_state_dict(state, strict=strict)
+        created: dict[str, object] = {}
+        fake_module = types.SimpleNamespace(
+            create_model_and_transforms=lambda *args, **kwargs: (created.update(kwargs) or (FakeCLIP(), None, None)),
+            tokenize=lambda prompts: torch.ones((len(prompts), 1), dtype=torch.long),
+        )
+        with patch.dict("sys.modules", {"open_clip": fake_module}), patch("uncanny_lab.engines.clip.load_state_dict", return_value={"weight": torch.ones(1)}):
+            model, _ = open_clip_model({"clip_model": "ViT-B-32", "clip_checkpoint": Path("/unused"), "prompt": "test"}, Runtime.create("cpu"))
+        self.assertTrue(created["force_quick_gelu"])
+        self.assertIs(created["strict"], True)
+        self.assertFalse(next(model.parameters()).requires_grad)
 
 
 if __name__ == "__main__":

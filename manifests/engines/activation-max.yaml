@@ -14,7 +14,7 @@ runtime:
   device: [xpu, cpu]
   precision: [fp32]
 parameters:
-  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/classifiers/vgg19.pt}
+  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/bundle-b/classifiers/vgg19.pt}
   init: {type: string, title: Starting image, group: Basic, default: noise, enum: [noise, source]}
   layer: {type: string, title: Feature layer, group: Advanced, default: features.20}
   channel: {type: integer, title: Channel, group: Advanced, default: 0, min: 0, max: 4095}

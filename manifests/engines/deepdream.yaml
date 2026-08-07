@@ -14,7 +14,7 @@ runtime:
   device: [xpu, cpu]
   precision: [fp32]
 parameters:
-  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/classifiers/vgg19.pt}
+  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/bundle-b/classifiers/vgg19.pt}
   layer: {type: string, title: Feature layer, group: Advanced, default: features.20}
   width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 1024}
   height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 1024}

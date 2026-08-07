@@ -1,6 +1,7 @@
 package engines
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -82,3 +83,29 @@ func (r *Registry) Get(id string) (Manifest, bool) {
 }
 
 func (m Manifest) IsEnabled() bool { return m.Enabled == nil || *m.Enabled }
+
+func (m Manifest) ApplyDefaults(parameters json.RawMessage) (json.RawMessage, error) {
+	values := make(map[string]any)
+	if len(parameters) > 0 {
+		if err := json.Unmarshal(parameters, &values); err != nil {
+			return nil, fmt.Errorf("decode parameters: %w", err)
+		}
+	}
+	for name, raw := range m.Parameters {
+		schema, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if _, supplied := values[name]; supplied {
+			continue
+		}
+		if value, exists := schema["default"]; exists {
+			values[name] = value
+		}
+	}
+	normalized, err := json.Marshal(values)
+	if err != nil {
+		return nil, fmt.Errorf("encode parameters: %w", err)
+	}
+	return normalized, nil
+}

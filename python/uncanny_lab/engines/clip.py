@@ -38,11 +38,16 @@ def open_clip_model(parameters: dict[str, Any], runtime: Runtime) -> tuple[Any, 
     except ImportError as error:
         raise WorkerError("UNSUPPORTED_MODEL", "CLIP engines require open_clip_torch") from error
     try:
-        model, _, _ = open_clip.create_model_and_transforms(parameters["clip_model"], pretrained=None, device=runtime.device)
+        # Original OpenAI CLIP checkpoints use QuickGELU. OpenCLIP defaults differ for
+        # this architecture, so this is part of the checkpoint format contract.
+        model, _, _ = open_clip.create_model_and_transforms(
+            parameters["clip_model"],
+            pretrained=None,
+            force_quick_gelu=True,
+            device=runtime.device,
+        )
         state = load_state_dict(parameters["clip_checkpoint"], runtime.device)
-        missing, _ = model.load_state_dict({key.removeprefix("module."): value for key, value in state.items()}, strict=False)
-        if len(missing) > len(model.state_dict()) // 3:
-            raise RuntimeError("checkpoint is missing most CLIP weights")
+        model.load_state_dict({key.removeprefix("module."): value for key, value in state.items()}, strict=True)
         freeze(model)
         tokens = open_clip.tokenize([parameters["prompt"]]).to(runtime.device)
         with require_torch().no_grad():
@@ -97,14 +102,22 @@ def vector_quantize(latent: Any, codebook: Any) -> Any:
 
 def load_codebook(path: Path, device: str) -> Any:
     state = load_state_dict(path, device)
-    preferred = ("embedding.weight", "quantize.embedding.weight", "codebook.weight")
-    value = next((state[key] for key in preferred if key in state), None)
-    if value is None:
-        tensors = [item for item in state.values() if hasattr(item, "ndim") and item.ndim == 2]
-        value = tensors[0] if len(tensors) == 1 else None
-    if value is None or value.ndim != 2 or value.shape[0] < 2 or value.shape[1] < 1:
-        raise WorkerError("MODEL_INVALID", "VQGAN codebook must contain one [codes, channels] embedding tensor")
+    value = state.get("embedding.weight") if set(state) == {"embedding.weight"} else None
+    if value is None or tuple(value.shape) != (16384, 256):
+        raise WorkerError("MODEL_INVALID", "VQGAN codebook must be exactly embedding.weight [16384,256]")
     return value.to(device=device, dtype=require_torch().float32).detach()
+
+
+def validate_vqgan_output(output: Any, latent: Any) -> None:
+    expected = (latent.shape[0], 3, latent.shape[2] * 16, latent.shape[3] * 16)
+    if tuple(output.shape) != expected:
+        raise WorkerError("UNSUPPORTED_MODEL", f"VQGAN decoder must return RGB BCHW at 16x spatial scale, expected {expected}")
+
+
+def validate_biggan_output(output: Any, latent: Any) -> None:
+    expected = (latent.shape[0], 3, 256, 256)
+    if tuple(output.shape) != expected:
+        raise WorkerError("UNSUPPORTED_MODEL", f"BigGAN-deep-256 generator must return {expected}")
 
 
 def progress(job: dict[str, Any], job_dir: Path, image: Any, step: int, total: int) -> None:
@@ -118,7 +131,7 @@ def progress(job: dict[str, Any], job_dir: Path, image: Any, step: int, total: i
 
 
 class DeepDazeEngine(Engine):
-    id, version = "deep-daze", "1.1.0"
+    id, version = "deep-daze", "1.2.0"
 
     def validate(self, parameters: dict[str, Any]) -> dict[str, Any]:
         return clip_parameters(parameters)
@@ -158,7 +171,7 @@ class DeepDazeEngine(Engine):
 
 
 class VQGANClipEngine(Engine):
-    id, version = "vqgan-clip", "1.1.0"
+    id, version = "vqgan-clip", "1.2.0"
 
     def validate(self, parameters: dict[str, Any]) -> dict[str, Any]:
         result = clip_parameters(parameters)
@@ -185,8 +198,7 @@ class VQGANClipEngine(Engine):
             probe = decoder(vector_quantize(latent, codebook))
         except Exception as error:
             raise WorkerError("UNSUPPORTED_MODEL", "VQGAN decoder must accept a quantized BCHW embedding grid") from error
-        if probe.ndim != 4 or probe.shape[1] != 3:
-            raise WorkerError("UNSUPPORTED_MODEL", "VQGAN decoder must return a BCHW RGB image")
+        validate_vqgan_output(probe, latent)
         optimizer = library.optim.Adam([latent], lr=parameters["learning_rate"])
         emit("started", device=runtime.device, fallback=runtime.fallback)
         for step in range(1, parameters["iterations"] + 1):
@@ -204,14 +216,17 @@ class VQGANClipEngine(Engine):
 
 
 class BigSleepEngine(Engine):
-    id, version = "big-sleep", "1.1.0"
+    id, version = "big-sleep", "1.2.0"
 
     def validate(self, parameters: dict[str, Any]) -> dict[str, Any]:
         result = clip_parameters(parameters)
+        for name, expected in (("latent_channels", 128), ("class_count", 1000)):
+            if parameters.get(name) is not None and integer(parameters[name], name, expected, expected, expected) != expected:
+                raise invalid(f"{name} must be {expected} for BigGAN-deep-256")
         result.update({
             "generator_path": local_file(parameters.get("generator_path"), "generator_path", model=True),
-            "latent_channels": integer(parameters.get("latent_channels"), "latent_channels", 1, 4096, 128),
-            "class_count": integer(parameters.get("class_count"), "class_count", 2, 10000, 1000),
+            "latent_channels": 128,
+            "class_count": 1000,
             "class_entropy_weight": number(parameters.get("class_entropy_weight"), "class_entropy_weight", 0, 10, 0.01),
         })
         return result
@@ -228,8 +243,7 @@ class BigSleepEngine(Engine):
             probe = generator(latent, class_logits.softmax(-1))
         except Exception as error:
             raise WorkerError("UNSUPPORTED_MODEL", "BigGAN generator must accept latent and class-probability tensors") from error
-        if probe.ndim != 4 or probe.shape[1] != 3:
-            raise WorkerError("UNSUPPORTED_MODEL", "BigGAN generator must return a BCHW RGB image")
+        validate_biggan_output(probe, latent)
         optimizer = library.optim.Adam([latent, class_logits], lr=parameters["learning_rate"])
         emit("started", device=runtime.device, fallback=runtime.fallback)
         for step in range(1, parameters["iterations"] + 1):

@@ -23,21 +23,40 @@ Engines whose required checkpoints are absent are disabled in the generator and 
 Expected default paths inside the data volume:
 
 ```text
-/data/models/classifiers/vgg19.pt
-/data/models/clip/vit-b-32.pt
-/data/models/vqgan/decoder.pt
-/data/models/vqgan/codebook.pt
-/data/models/biggan/generator.pt
+/data/models/bundle-b/classifiers/vgg19.pt
+/data/models/bundle-b/clip/vit-b-32.pt
+/data/models/bundle-b/vqgan/decoder.pt
+/data/models/bundle-b/vqgan/codebook.pt
+/data/models/bundle-b/biggan/generator.pt
 ```
 
-VGG files must contain a TorchVision-compatible VGG19 `state_dict`. CLIP files must contain an OpenCLIP `ViT-B-32` `state_dict`. The VQGAN decoder accepts a quantized BCHW embedding grid and returns BCHW RGB while its codebook is a weights-only state dictionary containing one `[codes, channels]` embedding tensor. The BigGAN generator accepts both a latent tensor and class-probability tensor, preserving class-conditioned optimization rather than treating BigGAN as an unconditional decoder.
+VGG files must contain a TorchVision-compatible VGG19 `state_dict`. CLIP files must contain an OpenCLIP `ViT-B-32` `state_dict` built with QuickGELU, matching original OpenAI ViT-B/32 checkpoints. The VQGAN decoder accepts a quantized BCHW embedding grid and returns BCHW RGB at 16 times the input spatial dimensions while its codebook is a weights-only state dictionary containing `embedding.weight` `[16384,256]`. The BigGAN generator accepts `z [N,128]` and class-probability tensors `[N,1000]` with truncation fixed to 1.0, preserving class-conditioned optimization rather than treating BigGAN as an unconditional decoder.
+
+## Bundle B conversion and provenance
+
+Conversion is deliberately separate from the production image. It needs the production Python environment plus `git` and the pinned source checkouts. It does not install Lightning or the legacy BigGAN package. After cloning the pinned repositories beneath `/data/.tmp/uncanny-lab`, run:
+
+```bash
+docker run --rm --user 1000:1000 --entrypoint python \
+  -e PYTHONPATH=/workspace/python \
+  -v /workspace/uncanny-lab:/workspace:ro \
+  -v /var/lib/uncanny-lab:/data \
+  -v /data/.tmp/uncanny-lab/taming-transformers:/sources/taming:ro \
+  -v /data/.tmp/uncanny-lab/pytorch-pretrained-BigGAN:/sources/biggan:ro \
+  -w /workspace core/uncanny-lab tools/convert_bundle_b.py \
+  --sources /data/model-sources --models /data/models \
+  --vgg-source /data/models/classifiers/vgg19.pt \
+  --taming-source /sources/taming --biggan-source /sources/biggan
+```
+
+The command requires taming-transformers commit `3ba01b241669f5ade541ce990f7650a3b8f65318` and pytorch-pretrained-BigGAN commit `1e18aed2dff75db51428f13b940c38b923eb4a3d`, with clean tracked and untracked source trees. It safely loads tensor-only checkpoints where supported, validates shapes, strict state loading, TorchScript interfaces, and input gradients. All five artifacts and provenance are built and validated in one staging directory under `/data/models/bundles`. It renames that directory to an immutable version and atomically replaces `/data/models/bundle-b` with a symlink to it. Existing bundle versions remain under `/data/models/bundles` for rollback. The machine-readable report is `/data/models/bundle-b/provenance/bundle-b-conversion-report.json` and records source and output hashes, source trees, environment, canonical URLs, license references, commits, interfaces, and validation cases.
 
 Optional model descriptors live at `/data/models/registry/<id>.json`:
 
 ```json
 {
   "id": "clip-vit-b-32",
-  "path": "clip/vit-b-32.pt",
+  "path": "bundle-b/clip/vit-b-32.pt",
   "sha256": "optional expected hash",
   "family": "CLIP",
   "engines": ["deep-daze", "vqgan-clip", "big-sleep"],
@@ -45,6 +64,8 @@ Optional model descriptors live at `/data/models/registry/<id>.json`:
   "notes": "local OpenCLIP state_dict"
 }
 ```
+
+Registry descriptors may use these stable `bundle-b/...` paths. The converter does not edit descriptors, so update any existing external descriptors after a successful migration. Existing flat artifacts are not removed. Supply the old VGG path through `--vgg-source` once, then point manifests and descriptors at the stable symlink. To roll back, atomically repoint `bundle-b` to a retained directory under `bundles` while workers are idle.
 
 ## Storage and isolation
 

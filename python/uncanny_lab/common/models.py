@@ -96,12 +96,13 @@ def load_vgg(path: Path, device: str) -> VGGFeatures:
     model = VGGFeatures().to(device)
     # Accept checkpoints saved from either VGGFeatures or torchvision.models.vgg19.
     cleaned = {key.removeprefix("module."): value for key, value in state.items()}
-    expected = {key for key in model.state_dict() if key.endswith("weight")}
-    if not expected.intersection(cleaned):
-        raise WorkerError("MODEL_INVALID", "checkpoint is not a VGG19 feature state_dict")
-    missing, unexpected = model.load_state_dict(cleaned, strict=False)
-    if len(missing) > len(model.state_dict()) // 3:
-        raise WorkerError("MODEL_INVALID", "VGG checkpoint is missing most feature weights")
+    expected = model.state_dict()
+    missing = set(expected).difference(cleaned)
+    unexpected = {key for key in cleaned if key not in expected and not key.startswith("classifier.")}
+    wrong_shapes = {key for key, value in expected.items() if key in cleaned and tuple(cleaned[key].shape) != tuple(value.shape)}
+    if missing or unexpected or wrong_shapes:
+        raise WorkerError("MODEL_INVALID", "checkpoint must contain the complete TorchVision VGG19 feature state_dict")
+    model.load_state_dict({key: cleaned[key] for key in expected}, strict=True)
     model.eval()
     for parameter in model.parameters():
         parameter.requires_grad_(False)
