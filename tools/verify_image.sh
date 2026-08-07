@@ -43,6 +43,7 @@ docker run --rm --entrypoint sh "$image" -ec '
 docker run --rm --entrypoint python3 "$image" -m uncanny_lab.runner --self-test --device cpu
 
 chmod 777 "$data_dir"
+docker run --rm --user root --entrypoint chown -v "$data_dir:/data" "$image" -R 1000:1000 /data >/dev/null
 docker run -d --name "$name" -e UNCANNY_DEVICE=cpu -v "$data_dir:/data" "$image" >/dev/null
 for _ in {1..30}; do
     if docker exec "$name" python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/healthz", timeout=1).read()' >/dev/null 2>&1; then
