@@ -1,0 +1,25 @@
+id: vqgan-clip
+name: VQGAN + CLIP
+type: text-to-image
+version: 1.0.0
+description: Optimizes a portable TorchScript generator latent against local CLIP guidance.
+enabled: false
+models: [clip-vit-b-32, vqgan-portable]
+capabilities:
+  prompt: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32, fp16]
+parameters:
+  prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "a recursive painted machine"}
+  generator_path: {type: string, title: VQGAN TorchScript generator, group: Basic, default: /data/models/vqgan/generator.pt}
+  clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
+  clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
+  latent_channels: {type: integer, title: Latent channels, group: Expert, default: 256, min: 1, max: 4096}
+  width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
+  height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}
+  iterations: {type: integer, title: Iterations, group: Basic, default: 300, min: 1, max: 2000}
+  learning_rate: {type: number, title: Learning rate, group: Advanced, default: 0.05, min: 0.00001, max: 1}

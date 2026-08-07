@@ -6,10 +6,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from legacy_lab.common.images import write_rgb_png
-from legacy_lab.common.progress import emit
-from legacy_lab.engines.base import Engine
-from legacy_lab.runtime.device import Runtime, torch
+from uncanny_lab.common.images import write_rgb_png
+from uncanny_lab.common.progress import emit
+from uncanny_lab.engines.base import Engine
+from uncanny_lab.runtime.device import Runtime, torch
 
 
 class TestPatternEngine(Engine):

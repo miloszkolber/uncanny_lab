@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any
 
-from legacy_lab.errors import WorkerError
-from legacy_lab.runtime.device import torch
+from uncanny_lab.errors import WorkerError
+from uncanny_lab.runtime.device import torch
+
+VGG_MEAN = (0.485, 0.456, 0.406)
+VGG_STD = (0.229, 0.224, 0.225)
 
 
 def local_file(value: Any, name: str, *, model: bool = False) -> Path:
     if not isinstance(value, str) or not value:
         raise WorkerError("INVALID_PARAMETERS", f"{name} must be an absolute path")
     path = Path(value)
-    root = Path("/data/models" if model else "/data")
+    root = Path(os.environ.get("UNCANNY_MODELS_ROOT" if model else "UNCANNY_DATA_ROOT", "/data/models" if model else "/data")).resolve()
     try:
         resolved = path.resolve(strict=True)
         resolved.relative_to(root)
@@ -70,13 +74,20 @@ class VGGFeatures(require_torch().nn.Module if torch is not None else object):
 
     def forward_features(self, image: Any, requested: set[str]) -> dict[str, Any]:
         output: dict[str, Any] = {}
-        value = image
+        value = normalize_vgg(image)
         for index, layer in enumerate(self.features):
             value = layer(value)
             name = f"features.{index}"
             if name in requested:
                 output[name] = value
         return output
+
+
+def normalize_vgg(image: Any) -> Any:
+    library = require_torch()
+    mean = library.tensor(VGG_MEAN, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
+    std = library.tensor(VGG_STD, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
+    return (image - mean) / std
 
 
 def load_vgg(path: Path, device: str) -> VGGFeatures:

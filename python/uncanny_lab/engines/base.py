@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from legacy_lab.runtime.device import Runtime
+from uncanny_lab.runtime.device import Runtime
 
 
 class Engine(ABC):

@@ -36,7 +36,7 @@ func LoadModels(root string, registry *Registry) ([]ModelStatus, error) {
 	registryRoot := filepath.Join(root, "registry")
 	entries, err := os.ReadDir(registryRoot)
 	if errors.Is(err, os.ErrNotExist) {
-		return requiredModels(registry), nil
+		return requiredModels(root, registry), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read model registry: %w", err)
@@ -60,9 +60,9 @@ func LoadModels(root string, registry *Registry) ([]ModelStatus, error) {
 		if _, found := models[descriptor.ID]; found {
 			return nil, fmt.Errorf("duplicate model ID %s", descriptor.ID)
 		}
-		models[descriptor.ID] = statusFor(root, descriptor)
+		models[descriptor.ID] = statusFor(root, descriptor, false)
 	}
-	for _, required := range requiredModels(registry) {
+	for _, required := range requiredModels(root, registry) {
 		if _, found := models[required.ID]; !found {
 			models[required.ID] = required
 		}
@@ -75,14 +75,20 @@ func LoadModels(root string, registry *Registry) ([]ModelStatus, error) {
 	return result, nil
 }
 
-func requiredModels(registry *Registry) []ModelStatus {
+func requiredModels(root string, registry *Registry) []ModelStatus {
 	result := map[string]ModelStatus{}
-	for _, engine := range registry.All() {
+	for _, engine := range registry.Enabled() {
 		for _, id := range engine.Models {
 			if modelIDPattern.MatchString(id) {
 				model := result[id]
+				if model.ID == "" {
+					model.ModelDescriptor = builtinModel(id)
+				}
 				model.ID, model.Status = id, "missing"
 				model.Engines = append(model.Engines, engine.ID)
+				if model.Path != "" {
+					model = statusFor(root, model.ModelDescriptor, false)
+				}
 				result[id] = model
 			}
 		}
@@ -91,10 +97,11 @@ func requiredModels(registry *Registry) []ModelStatus {
 	for _, model := range result {
 		models = append(models, model)
 	}
+	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 	return models
 }
 
-func statusFor(root string, descriptor ModelDescriptor) ModelStatus {
+func statusFor(root string, descriptor ModelDescriptor, verify bool) ModelStatus {
 	status := ModelStatus{ModelDescriptor: descriptor, Status: "missing"}
 	path, err := containedFile(root, descriptor.Path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -111,15 +118,17 @@ func statusFor(root string, descriptor ModelDescriptor) ModelStatus {
 		}
 		return status
 	}
-	hash, err := FileSHA256(path)
-	if err != nil {
-		status.Status = "invalid"
-		return status
-	}
-	status.Hash = hash
-	if descriptor.SHA256 != "" && !strings.EqualFold(descriptor.SHA256, hash) {
-		status.Status = "invalid"
-		return status
+	if verify {
+		hash, err := FileSHA256(path)
+		if err != nil {
+			status.Status = "invalid"
+			return status
+		}
+		status.Hash = hash
+		if descriptor.SHA256 != "" && !strings.EqualFold(descriptor.SHA256, hash) {
+			status.Status = "invalid"
+			return status
+		}
 	}
 	status.Status = "available"
 	return status
@@ -135,10 +144,36 @@ func VerifyModel(root, id string, registry *Registry) (ModelStatus, error) {
 	}
 	for _, model := range models {
 		if model.ID == id {
-			return model, nil
+			if model.Path == "" {
+				return model, nil
+			}
+			descriptor := model.ModelDescriptor
+			if filepath.IsAbs(descriptor.Path) {
+				relative, relativeErr := filepath.Rel(root, descriptor.Path)
+				if relativeErr != nil {
+					return ModelStatus{}, relativeErr
+				}
+				descriptor.Path = relative
+			}
+			return statusFor(root, descriptor, true), nil
 		}
 	}
 	return ModelStatus{}, os.ErrNotExist
+}
+
+func builtinModel(id string) ModelDescriptor {
+	switch id {
+	case "vgg19-imagenet":
+		return ModelDescriptor{ID: id, Path: "classifiers/vgg19.pt", Family: "Classifiers", License: "Checkpoint license applies", Notes: "TorchVision-compatible VGG19 state_dict"}
+	case "clip-vit-b-32":
+		return ModelDescriptor{ID: id, Path: "clip/vit-b-32.pt", Family: "CLIP", License: "Checkpoint license applies", Notes: "OpenCLIP ViT-B-32 state_dict"}
+	case "vqgan-portable":
+		return ModelDescriptor{ID: id, Path: "vqgan/generator.pt", Family: "VQGAN", License: "Checkpoint license applies", Notes: "TorchScript generator accepting a latent vector and returning BCHW RGB"}
+	case "biggan-portable":
+		return ModelDescriptor{ID: id, Path: "biggan/generator.pt", Family: "BigGAN", License: "Checkpoint license applies", Notes: "TorchScript generator accepting a latent vector and returning BCHW RGB"}
+	default:
+		return ModelDescriptor{ID: id}
+	}
 }
 
 func containedFile(root, value string) (string, error) {

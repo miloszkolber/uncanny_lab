@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
-	"github.com/miloszkolber/legacy-image-lab/internal/database"
-	"github.com/miloszkolber/legacy-image-lab/internal/events"
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/events"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 )
 
 func TestErrorEventCannotBeOverwrittenByCompletion(t *testing.T) {
@@ -43,5 +43,37 @@ func TestErrorEventCannotBeOverwrittenByCompletion(t *testing.T) {
 	}
 	if job.Status != jobs.Failed || job.FinalPath != "" {
 		t.Fatalf("terminal state was overwritten: %+v", job)
+	}
+}
+
+func TestJobFileHashesIncludesOnlyApprovedParameterFiles(t *testing.T) {
+	root := t.TempDir()
+	jobID := "123-0123456789ab"
+	jobDir := filepath.Join(root, "workspace", "jobs", jobID)
+	input := filepath.Join(jobDir, "inputs", "source_image.png")
+	model := filepath.Join(root, "models", "model.pt")
+	if err := os.MkdirAll(filepath.Dir(input), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(model), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(input, []byte("image"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(model, []byte("model"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	spec, err := json.Marshal(map[string]any{"parameters": map[string]any{"source_image": input, "classifier_path": model, "prompt": "/etc/passwd"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(jobDir, "job.json"), spec, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	orchestrator := &Orchestrator{cfg: config.Config{Paths: config.PathsConfig{Data: root, Workspace: filepath.Join(root, "workspace")}}}
+	hashes := orchestrator.jobFileHashes(jobID)
+	if len(hashes) != 2 || hashes["source_image"] == "" || hashes["classifier_path"] == "" {
+		t.Fatalf("unexpected file hashes: %#v", hashes)
 	}
 }

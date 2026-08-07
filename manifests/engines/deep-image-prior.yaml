@@ -1,0 +1,20 @@
+id: deep-image-prior
+name: Deep Image Prior
+type: image-to-image
+version: 1.0.0
+description: Fits an untrained convolutional network to an uploaded image and preserves its optimization trajectory.
+enabled: true
+capabilities:
+  source_image: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32]
+parameters:
+  width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
+  height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}
+  iterations: {type: integer, title: Iterations, group: Basic, default: 500, min: 1, max: 3000}
+  learning_rate: {type: number, title: Learning rate, group: Advanced, default: 0.01, min: 0.00001, max: 0.1}
+  noise_std: {type: number, title: Input noise, group: Advanced, default: 0.03, min: 0, max: 0.2}

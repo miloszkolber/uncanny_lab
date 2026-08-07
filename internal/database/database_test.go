@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 )
 
 func TestRepositoryJobLifecycle(t *testing.T) {

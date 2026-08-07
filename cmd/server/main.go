@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/api"
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
-	"github.com/miloszkolber/legacy-image-lab/internal/database"
-	"github.com/miloszkolber/legacy-image-lab/internal/events"
-	"github.com/miloszkolber/legacy-image-lab/internal/orchestrator"
+	"github.com/miloszkolber/uncanny-lab/internal/api"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/events"
+	"github.com/miloszkolber/uncanny-lab/internal/orchestrator"
 )
 
 var version = "development"
@@ -62,7 +62,7 @@ func main() {
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      0, // SSE responses remain open.
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

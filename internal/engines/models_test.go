@@ -24,8 +24,15 @@ func TestModelPathContainmentAndHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if models[0].Status != "available" || models[0].Hash == "" {
-		t.Fatalf("available model missing hash: %+v", models[0])
+	if models[0].Status != "available" || models[0].Hash != "" {
+		t.Fatalf("model listing should avoid eager hashing: %+v", models[0])
+	}
+	verified, err := VerifyModel(root, "model-a", &Registry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.Status != "available" || verified.Hash == "" {
+		t.Fatalf("verified model missing hash: %+v", verified)
 	}
 	if models[1].Status != "invalid" {
 		t.Fatalf("escaped model status = %s", models[1].Status)

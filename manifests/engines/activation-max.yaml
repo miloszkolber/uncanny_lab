@@ -1,0 +1,24 @@
+id: activation-max
+name: Activation Maximization
+type: image-to-image
+version: 1.0.0
+description: Synthesizes a classifier feature from noise or an uploaded source.
+enabled: true
+models: [vgg19-imagenet]
+capabilities:
+  source_image: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32]
+parameters:
+  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/classifiers/vgg19.pt}
+  init: {type: string, title: Starting image, group: Basic, default: noise, enum: [noise, source]}
+  layer: {type: string, title: Feature layer, group: Advanced, default: features.20}
+  channel: {type: integer, title: Channel, group: Advanced, default: 0, min: 0, max: 4095}
+  width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 1024}
+  height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 1024}
+  iterations: {type: integer, title: Iterations, group: Basic, default: 250, min: 1, max: 2000}
+  learning_rate: {type: number, title: Learning rate, group: Expert, default: 0.03, min: 0.00001, max: 1}

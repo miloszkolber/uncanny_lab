@@ -2,6 +2,7 @@ id: test-pattern
 name: XPU test pattern
 type: text-to-image
 version: 0.1.0
+enabled: false
 description: Infrastructure test engine that performs tensor work and saves iterative previews.
 
 capabilities:

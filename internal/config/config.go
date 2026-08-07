@@ -49,7 +49,7 @@ func defaults() Config {
 	return Config{
 		Server:   ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Runtime:  RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/app/python"},
-		Paths:    PathsConfig{Data: "/data", Models: "/models", Inputs: "/inputs", Outputs: "/outputs", Workspace: "/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
+		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Outputs: "/data/outputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
 		Previews: PreviewConfig{Enabled: true, EverySteps: 5},
 	}
 }
@@ -105,5 +105,5 @@ func (c Config) EnsureDirectories() error {
 	return nil
 }
 
-func (c Config) DatabasePath() string { return filepath.Join(c.Paths.Workspace, "legacy-lab.db") }
+func (c Config) DatabasePath() string { return filepath.Join(c.Paths.Workspace, "uncanny-lab.db") }
 func (c Config) JobRoot() string      { return filepath.Join(c.Paths.Workspace, "jobs") }

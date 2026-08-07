@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 	_ "modernc.org/sqlite"
 )
 

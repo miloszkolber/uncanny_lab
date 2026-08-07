@@ -12,12 +12,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
-	"github.com/miloszkolber/legacy-image-lab/internal/database"
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 )
 
 func TestUploadRejectsWrongContentType(t *testing.T) {
@@ -120,5 +121,42 @@ func TestDeleteRejectsSymlinkedJobDirectory(t *testing.T) {
 	}
 	if _, err := os.Stat(outside); err != nil {
 		t.Fatal("outside directory was removed")
+	}
+}
+
+func TestDuplicatePreservesPrivateInputAfterOriginalDeletion(t *testing.T) {
+	root := t.TempDir()
+	workspace := filepath.Join(root, "workspace")
+	inputs := filepath.Join(root, "inputs")
+	id := "123-0123456789ab"
+	privateInput := filepath.Join(workspace, "jobs", id, "inputs", "source_image.png")
+	if err := os.MkdirAll(filepath.Dir(privateInput), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(inputs, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(privateInput, []byte("image"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	a := &API{cfg: config.Config{Paths: config.PathsConfig{Workspace: workspace, Inputs: inputs}}}
+	original := jobs.Job{ID: id, Parameters: json.RawMessage(`{"source_image":"workspace/jobs/upstream/final.png"}`)}
+	parameters, err := a.duplicateParameters(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(workspace, "jobs", id)); err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]string
+	if err := json.Unmarshal(parameters, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	token := decoded["source_image"]
+	if !strings.HasPrefix(token, "inputs/") {
+		t.Fatalf("duplicate input was not made durable: %q", token)
+	}
+	if _, err := os.Stat(filepath.Join(root, token)); err != nil {
+		t.Fatalf("durable duplicate input is missing: %v", err)
 	}
 }

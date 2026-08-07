@@ -9,11 +9,13 @@ runtime:
   default_precision: fp32
 
 paths:
-  models: /models
-  inputs: /inputs
-  outputs: /outputs
-  workspace: /workspace
+  data: /data
+  models: /data/models
+  inputs: /data/inputs
+  outputs: /data/outputs
+  workspace: /data/workspace
   manifests: /app/manifests/engines
+  ui_library: /ui-library
 
 previews:
   enabled: true

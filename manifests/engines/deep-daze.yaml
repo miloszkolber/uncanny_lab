@@ -1,0 +1,23 @@
+id: deep-daze
+name: Deep Daze
+type: text-to-image
+version: 1.0.0
+description: Optimizes an implicit coordinate network against a local CLIP model.
+enabled: true
+models: [clip-vit-b-32]
+capabilities:
+  prompt: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32]
+parameters:
+  prompt: {type: string, title: Prompt, format: textarea, group: Basic, default: "an uncanny architectural organism"}
+  clip_checkpoint: {type: string, title: CLIP checkpoint, group: Basic, default: /data/models/clip/vit-b-32.pt}
+  clip_model: {type: string, title: CLIP architecture, group: Advanced, default: ViT-B-32}
+  width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 512}
+  height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 512}
+  iterations: {type: integer, title: Iterations, group: Basic, default: 250, min: 1, max: 2000}
+  learning_rate: {type: number, title: Learning rate, group: Advanced, default: 0.001, min: 0.00001, max: 1}

@@ -62,6 +62,16 @@ func Load(directory string) (*Registry, error) {
 
 func (r *Registry) All() []Manifest { return append([]Manifest(nil), r.manifests...) }
 
+func (r *Registry) Enabled() []Manifest {
+	result := make([]Manifest, 0, len(r.manifests))
+	for _, manifest := range r.manifests {
+		if manifest.IsEnabled() {
+			result = append(result, manifest)
+		}
+	}
+	return result
+}
+
 func (r *Registry) Get(id string) (Manifest, bool) {
 	for _, manifest := range r.manifests {
 		if manifest.ID == id {

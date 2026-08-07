@@ -1,17 +1,16 @@
 [project]
-name = "legacy-image-lab"
-version = "0.1.0"
-description = "Replaceable Python image-generation workers for Legacy Image Lab"
+name = "uncanny-lab"
+version = "0.2.0"
+description = "Replaceable optimization-based image workers for Uncanny Lab"
 requires-python = ">=3.11"
-dependencies = ["torch", "Pillow"]
+dependencies = ["torch>=2.11,<2.12", "torchvision>=0.26,<0.27", "Pillow>=12,<13", "open_clip_torch==3.3.0"]
 
 [project.optional-dependencies]
 test = []
-clip = ["open_clip_torch"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["legacy_lab"]
+packages = ["uncanny_lab"]

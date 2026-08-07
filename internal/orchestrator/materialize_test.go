@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
 )
 
 func TestMaterializeImageParametersRejectsEscapingSymlink(t *testing.T) {

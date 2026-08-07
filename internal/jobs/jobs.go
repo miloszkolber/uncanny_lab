@@ -31,6 +31,7 @@ type Job struct {
 	ProgressStep     int             `json:"progress_step"`
 	ProgressTotal    int             `json:"progress_total"`
 	PreviewPath      string          `json:"preview_path,omitempty"`
+	PreviewFrames    []string        `json:"preview_frames,omitempty"`
 	FinalPath        string          `json:"final_path,omitempty"`
 	ErrorCode        string          `json:"error_code,omitempty"`
 	ErrorMessage     string          `json:"error_message,omitempty"`

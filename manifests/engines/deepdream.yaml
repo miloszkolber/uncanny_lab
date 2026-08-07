@@ -1,0 +1,24 @@
+id: deepdream
+name: DeepDream
+type: image-to-image
+version: 1.0.0
+description: Amplifies classifier activations across an octave pyramid.
+enabled: true
+models: [vgg19-imagenet]
+capabilities:
+  source_image: true
+  seed: true
+  iterations: true
+  intermediate_frames: true
+runtime:
+  device: [xpu, cpu]
+  precision: [fp32]
+parameters:
+  classifier_path: {type: string, title: VGG19 checkpoint, group: Basic, default: /data/models/classifiers/vgg19.pt}
+  layer: {type: string, title: Feature layer, group: Advanced, default: features.20}
+  width: {type: integer, title: Width, group: Basic, default: 256, min: 32, max: 1024}
+  height: {type: integer, title: Height, group: Basic, default: 256, min: 32, max: 1024}
+  iterations: {type: integer, title: Iterations per octave, group: Basic, default: 40, min: 1, max: 2000}
+  octaves: {type: integer, title: Octaves, group: Advanced, default: 3, min: 1, max: 5}
+  octave_scale: {type: number, title: Octave scale, group: Advanced, default: 1.4, min: 1.1, max: 2}
+  learning_rate: {type: number, title: Learning rate, group: Expert, default: 0.03, min: 0.00001, max: 1}

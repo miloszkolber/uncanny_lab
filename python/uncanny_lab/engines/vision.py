@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from legacy_lab.common.images import load_image, save_tensor_png
-from legacy_lab.common.models import load_vgg, local_file, require_torch
-from legacy_lab.common.progress import emit
-from legacy_lab.errors import WorkerError, invalid
-from legacy_lab.engines.base import Engine
-from legacy_lab.runtime.device import Runtime
+from uncanny_lab.common.images import load_image, save_tensor_png
+from uncanny_lab.common.models import load_vgg, local_file, require_torch
+from uncanny_lab.common.progress import emit
+from uncanny_lab.errors import WorkerError, invalid
+from uncanny_lab.engines.base import Engine
+from uncanny_lab.runtime.device import Runtime
 
 STYLE_LAYERS = ("features.1", "features.6", "features.11", "features.20", "features.29")
 CONTENT_LAYER = "features.22"
@@ -119,7 +119,7 @@ class DeepDreamEngine(FeatureEngine):
         result["layer"] = str(parameters.get("layer", "features.20"))
         result["octaves"] = integer(parameters.get("octaves"), "octaves", 1, 5, 3)
         result["octave_scale"] = number(parameters.get("octave_scale"), "octave_scale", 1.1, 2.0, 1.4)
-        if result["width"] * result["height"] * result["octave_scale"] ** (result["octaves"] - 1) > 1_048_576:
+        if result["width"] * result["height"] * result["octave_scale"] ** (2 * (result["octaves"] - 1)) > 1_048_576:
             raise invalid("octaves would exceed the maximum image area")
         return result
 

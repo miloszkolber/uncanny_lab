@@ -1,8 +1,8 @@
-from legacy_lab.engines.base import Engine
-from legacy_lab.engines.clip import BigSleepEngine, DeepDazeEngine, VQGANClipEngine
-from legacy_lab.engines.dip import DeepImagePriorEngine
-from legacy_lab.engines.test_pattern import TestPatternEngine
-from legacy_lab.engines.vision import ActivationMaxEngine, DeepDreamEngine, NeuralStyleEngine
+from uncanny_lab.engines.base import Engine
+from uncanny_lab.engines.clip import BigSleepEngine, DeepDazeEngine, VQGANClipEngine
+from uncanny_lab.engines.dip import DeepImagePriorEngine
+from uncanny_lab.engines.test_pattern import TestPatternEngine
+from uncanny_lab.engines.vision import ActivationMaxEngine, DeepDreamEngine, NeuralStyleEngine
 
 
 ENGINES: dict[str, Engine] = {engine.id: engine for engine in (TestPatternEngine(), NeuralStyleEngine(), DeepDreamEngine(), ActivationMaxEngine(), DeepImagePriorEngine(), DeepDazeEngine(), VQGANClipEngine(), BigSleepEngine())}

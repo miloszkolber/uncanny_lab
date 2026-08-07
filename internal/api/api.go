@@ -22,18 +22,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
-	"github.com/miloszkolber/legacy-image-lab/internal/database"
-	"github.com/miloszkolber/legacy-image-lab/internal/engines"
-	"github.com/miloszkolber/legacy-image-lab/internal/events"
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
-	"github.com/miloszkolber/legacy-image-lab/internal/orchestrator"
-	webassets "github.com/miloszkolber/legacy-image-lab/web"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/engines"
+	"github.com/miloszkolber/uncanny-lab/internal/events"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/orchestrator"
+	webassets "github.com/miloszkolber/uncanny-lab/web"
 )
 
 type API struct {
@@ -92,7 +93,7 @@ func (a *API) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *API) engines(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, a.registry.All())
+	writeJSON(w, http.StatusOK, a.registry.Enabled())
 }
 
 func (a *API) models(w http.ResponseWriter, _ *http.Request) {
@@ -145,6 +146,7 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusRequestEntityTooLarge, "UPLOAD_TOO_LARGE", "Upload exceeds 32 MiB")
 		return
 	}
+	defer r.MultipartForm.RemoveAll()
 	file, _, err := r.FormFile("image")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_UPLOAD", "A form field named image is required")
@@ -225,6 +227,9 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "list jobs", err)
 		return
 	}
+	for index := range items {
+		a.attachFrames(&items[index])
+	}
 	writeJSON(w, http.StatusOK, items)
 }
 
@@ -238,6 +243,7 @@ func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "get job", err)
 		return
 	}
+	a.attachFrames(&job)
 	writeJSON(w, http.StatusOK, job)
 }
 
@@ -288,8 +294,13 @@ func (a *API) duplicateJob(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "duplicate job", err)
 		return
 	}
+	parameters, err := a.duplicateParameters(original)
+	if err != nil {
+		a.internalError(w, "preserve duplicate inputs", err)
+		return
+	}
 	seed := original.Seed
-	job, err := a.newJob(jobs.CreateRequest{Engine: original.Engine, Parameters: original.Parameters, Seed: &seed})
+	job, err := a.newJob(jobs.CreateRequest{Engine: original.Engine, Parameters: parameters, Seed: &seed})
 	if err != nil {
 		a.internalError(w, "duplicate job", err)
 		return
@@ -307,6 +318,61 @@ func (a *API) duplicateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (a *API) duplicateParameters(original jobs.Job) (json.RawMessage, error) {
+	var parameters map[string]any
+	if err := json.Unmarshal(original.Parameters, &parameters); err != nil {
+		return nil, err
+	}
+	jobDir, err := jobDirectory(a.cfg, original.ID)
+	if err != nil {
+		return original.Parameters, nil
+	}
+	for _, key := range []string{"source_image", "style_image", "init_image"} {
+		if _, exists := parameters[key]; !exists {
+			continue
+		}
+		source, err := containedFile(jobDir, filepath.Join("inputs", key+".png"))
+		if err != nil {
+			continue
+		}
+		var random [16]byte
+		if _, err := rand.Read(random[:]); err != nil {
+			return nil, err
+		}
+		id := hex.EncodeToString(random[:])
+		target := filepath.Join(a.cfg.Paths.Inputs, id+".png")
+		if err := copyFile(source, target); err != nil {
+			return nil, err
+		}
+		parameters[key] = "inputs/" + id + ".png"
+	}
+	return json.Marshal(parameters)
+}
+
+func copyFile(source, target string) error {
+	in, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	temporary := target + ".tmp"
+	out, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(temporary)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(temporary)
+		return closeErr
+	}
+	return os.Rename(temporary, target)
 }
 
 func (a *API) useAsInput(w http.ResponseWriter, r *http.Request) {
@@ -331,7 +397,22 @@ func (a *API) useAsInput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Final image not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"token": "workspace/jobs/" + job.ID + "/final.png", "template": map[string]any{"parameters": map[string]string{"init_image": "workspace/jobs/" + job.ID + "/final.png"}}})
+	writeJSON(w, http.StatusOK, map[string]any{"token": "workspace/jobs/" + job.ID + "/final.png", "template": map[string]any{"parameters": map[string]string{"source_image": "workspace/jobs/" + job.ID + "/final.png"}}})
+}
+
+func (a *API) attachFrames(job *jobs.Job) {
+	entries, err := os.ReadDir(filepath.Join(a.cfg.JobRoot(), job.ID, "previews"))
+	if err != nil {
+		return
+	}
+	frames := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".png") {
+			frames = append(frames, "previews/"+entry.Name())
+		}
+	}
+	sort.Strings(frames)
+	job.PreviewFrames = frames
 }
 
 func (a *API) exportJob(w http.ResponseWriter, r *http.Request) {
@@ -344,6 +425,11 @@ func (a *API) exportJob(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "export job", err)
 		return
 	}
+	if job.Status != jobs.Completed && job.Status != jobs.Failed && job.Status != jobs.Cancelled {
+		writeError(w, http.StatusConflict, "JOB_NOT_TERMINAL", "Only terminal jobs can be exported")
+		return
+	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(5 * time.Minute))
 	directory, err := jobDirectory(a.cfg, job.ID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job directory not found")
@@ -378,9 +464,12 @@ func (a *API) exportJob(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		defer in.Close()
-		_, err = io.Copy(file, in)
-		return err
+		_, copyErr := io.Copy(file, in)
+		closeErr := in.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
 	})
 	if closeErr := zipWriter.Close(); err == nil {
 		err = closeErr
@@ -472,6 +561,7 @@ func (a *API) streamEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "STREAM_UNAVAILABLE", "Streaming is unavailable")
 		return
 	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -550,15 +640,18 @@ func (a *API) system(w http.ResponseWriter, r *http.Request) {
 		probe, _ = a.systemCache["runtime"].(map[string]any)
 	} else {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "legacy_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
-		command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath)
+		command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "uncanny_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
+		command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath, "UNCANNY_DATA_ROOT="+a.cfg.Paths.Data, "UNCANNY_MODELS_ROOT="+a.cfg.Paths.Models)
 		output, err := command.Output()
 		cancel()
-		probe = map[string]any{"available": false, "error": "Runtime probe failed"}
+		probe = map[string]any{}
 		if err == nil {
 			if decodeErr := json.Unmarshal(output, &probe); decodeErr != nil {
 				probe["error"] = "Runtime returned invalid data"
 			}
+		} else {
+			probe["available"] = false
+			probe["error"] = "Runtime probe failed"
 		}
 		a.systemCache, a.systemCached = map[string]any{"runtime": probe}, time.Now()
 	}
@@ -687,7 +780,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; connect-src 'self'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self'; connect-src 'self'")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")

@@ -4,4 +4,4 @@ __pycache__
 *.pyc
 data
 coverage.out
-legacy-image-lab
+uncanny-lab

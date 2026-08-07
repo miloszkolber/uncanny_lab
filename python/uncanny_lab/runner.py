@@ -7,14 +7,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from legacy_lab.common.progress import diagnostic, fail
-from legacy_lab.engines import get_engine
-from legacy_lab.errors import WorkerError
-from legacy_lab.runtime.device import Runtime
+from uncanny_lab.common.progress import diagnostic, fail
+from uncanny_lab.engines import get_engine
+from uncanny_lab.errors import WorkerError
+from uncanny_lab.runtime.device import Runtime
 
 
 def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Legacy Image Lab worker")
+    parser = argparse.ArgumentParser(description="Uncanny Lab worker")
     parser.add_argument("--engine")
     parser.add_argument("--job", type=Path)
     parser.add_argument("--self-test", action="store_true")
@@ -44,6 +44,8 @@ def run(args: argparse.Namespace) -> int:
         parameters = engine.validate(job.get("parameters", {}))
         runtime_config = job.get("runtime", {})
         runtime = Runtime.create(str(runtime_config.get("device", "xpu")), str(runtime_config.get("precision", "fp32")))
+        if runtime.precision != "fp32" and engine.id != "test-pattern":
+            raise WorkerError("UNSUPPORTED_PRECISION", f"{engine.id} currently supports fp32 only")
         engine.generate(job, parameters, runtime, args.job.resolve().parent)
         return 0
     except WorkerError as error:

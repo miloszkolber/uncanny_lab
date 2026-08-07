@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, ContextManager
 
-from legacy_lab.errors import WorkerError
+from uncanny_lab.errors import WorkerError
 
 
 try:

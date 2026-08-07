@@ -5,15 +5,17 @@ server:
 runtime:
   device: cpu
   python_executable: python3
-  python_path: /workspace/legacy-image-lab/python
+  python_path: /workspace/uncanny-lab/python
   default_precision: fp32
 
 paths:
-  models: /tmp/legacy-image-lab/models
-  inputs: /tmp/legacy-image-lab/inputs
-  outputs: /tmp/legacy-image-lab/outputs
-  workspace: /tmp/legacy-image-lab/workspace
-  manifests: /workspace/legacy-image-lab/manifests/engines
+  data: /tmp/uncanny-lab
+  models: /tmp/uncanny-lab/models
+  inputs: /tmp/uncanny-lab/inputs
+  outputs: /tmp/uncanny-lab/outputs
+  workspace: /tmp/uncanny-lab/workspace
+  manifests: /workspace/uncanny-lab/manifests/engines
+  ui_library: /workspace/ui_library
 
 previews:
   enabled: true

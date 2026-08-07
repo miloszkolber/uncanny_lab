@@ -3,6 +3,8 @@ package orchestrator
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,10 +20,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/miloszkolber/legacy-image-lab/internal/config"
-	"github.com/miloszkolber/legacy-image-lab/internal/database"
-	"github.com/miloszkolber/legacy-image-lab/internal/events"
-	"github.com/miloszkolber/legacy-image-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/config"
+	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/events"
+	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 )
 
 type Orchestrator struct {
@@ -223,9 +225,9 @@ func (o *Orchestrator) execute(id string) {
 	}
 	defer stderrLog.Close()
 
-	command := exec.Command(o.cfg.Runtime.PythonExecutable, "-m", "legacy_lab.runner", "--engine", job.Engine, "--job", jobPath)
+	command := exec.Command(o.cfg.Runtime.PythonExecutable, "-m", "uncanny_lab.runner", "--engine", job.Engine, "--job", jobPath)
 	command.Dir = jobDir
-	command.Env = append(os.Environ(), "PYTHONPATH="+o.cfg.Runtime.PythonPath)
+	command.Env = append(os.Environ(), "PYTHONPATH="+o.cfg.Runtime.PythonPath, "UNCANNY_DATA_ROOT="+o.cfg.Paths.Data, "UNCANNY_MODELS_ROOT="+o.cfg.Paths.Models)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		o.fail(&job, "ENGINE_CRASHED", err.Error())
@@ -394,17 +396,58 @@ func (o *Orchestrator) fail(job *jobs.Job, code, message string) {
 func (o *Orchestrator) finish(job *jobs.Job, code, message string) error {
 	now := time.Now().UTC()
 	job.ErrorCode, job.ErrorMessage, job.CompletedAt = code, message, &now
+	metadataPath := ""
+	if job.Status == jobs.Completed {
+		metadata := map[string]any{"job": job, "application": "Uncanny Lab", "completed_at": now, "file_hashes": o.jobFileHashes(job.ID)}
+		metadataPath = filepath.Join(o.cfg.JobRoot(), job.ID, "metadata.json")
+		if err := atomicJSON(metadataPath, metadata); err != nil {
+			return fmt.Errorf("write completion metadata: %w", err)
+		}
+	}
 	if err := o.saveTerminal(*job); err != nil {
+		if metadataPath != "" {
+			_ = os.Remove(metadataPath)
+		}
 		return err
 	}
 	o.publish(job.ID, string(job.Status), *job)
-	if job.Status == jobs.Completed {
-		metadata := map[string]any{"job": job, "application": "Uncanny Lab", "completed_at": now}
-		if err := atomicJSON(filepath.Join(o.cfg.JobRoot(), job.ID, "metadata.json"), metadata); err != nil {
-			o.logger.Error("write metadata", "job_id", job.ID, "error", err)
+	return nil
+}
+
+func (o *Orchestrator) jobFileHashes(jobID string) map[string]string {
+	jobDir := filepath.Join(o.cfg.JobRoot(), jobID)
+	data, err := os.ReadFile(filepath.Join(jobDir, "job.json"))
+	if err != nil {
+		return nil
+	}
+	var spec struct {
+		Parameters map[string]any `json:"parameters"`
+	}
+	if json.Unmarshal(data, &spec) != nil {
+		return nil
+	}
+	result := make(map[string]string)
+	for key, value := range spec.Parameters {
+		path, ok := value.(string)
+		if !ok || !(strings.HasSuffix(key, "_image") || strings.HasSuffix(key, "_path") || strings.HasSuffix(key, "_checkpoint")) {
+			continue
+		}
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil || !strings.HasPrefix(resolved, o.cfg.Paths.Data+string(filepath.Separator)) {
+			continue
+		}
+		file, err := os.Open(resolved)
+		if err != nil {
+			continue
+		}
+		hash := sha256.New()
+		_, copyErr := io.Copy(hash, file)
+		closeErr := file.Close()
+		if copyErr == nil && closeErr == nil {
+			result[key] = hex.EncodeToString(hash.Sum(nil))
 		}
 	}
-	return nil
+	return result
 }
 
 var inputTokenID = regexp.MustCompile(`^[a-f0-9]{32}$`)
@@ -502,6 +545,7 @@ func copyRegularFile(source, destination string) error {
 	_, copyErr := io.Copy(out, in)
 	closeErr := out.Close()
 	if copyErr != nil {
+		_ = out.Close()
 		_ = os.Remove(temporary)
 		return copyErr
 	}

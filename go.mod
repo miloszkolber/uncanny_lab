@@ -1,4 +1,4 @@
-module github.com/miloszkolber/legacy-image-lab
+module github.com/miloszkolber/uncanny-lab
 
 go 1.24.0
 

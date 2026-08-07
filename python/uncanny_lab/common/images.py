@@ -7,8 +7,8 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-from legacy_lab.errors import WorkerError
-from legacy_lab.runtime.device import torch
+from uncanny_lab.errors import WorkerError
+from uncanny_lab.runtime.device import torch
 
 
 def write_rgb_png(path: Path, width: int, height: int, pixels: bytes) -> None:
