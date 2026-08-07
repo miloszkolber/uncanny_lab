@@ -5,7 +5,7 @@ server:
 runtime:
   device: xpu
   python_executable: python3
-  python_path: /app/python
+  python_path: /opt/venv/lib/python3.12/site-packages
   default_precision: fp32
 
 paths:

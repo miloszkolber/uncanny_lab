@@ -1,12 +1,9 @@
 services:
     uncanny-lab:
         container_name: uncanny-lab
-        image: core/uncanny-lab
-        build:
-            context: .
-            dockerfile: Dockerfile
+        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:latest}"
         restart: unless-stopped
-        user: "1000:1000"
+        user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
         read_only: true
         security_opt:
             - no-new-privileges:true
@@ -14,29 +11,32 @@ services:
             - ALL
         pids_limit: 512
         devices:
-            - /dev/dri/renderD128:/dev/dri/renderD128
+            - "${UNCANNY_RENDER_DEVICE:-/dev/dri/renderD128}:/dev/dri/renderD128"
         group_add:
             - "${RENDER_GID:-991}"
         shm_size: 2gb
         environment:
-            TZ: Europe/Warsaw
+            TZ: UTC
             XPU_VISIBLE_DEVICES: "0"
+            UNCANNY_DEVICE: "${UNCANNY_DEVICE:-xpu}"
             PYTHONUNBUFFERED: "1"
             PYTHONDONTWRITEBYTECODE: "1"
             HOME: /tmp
             XDG_CACHE_HOME: /data/cache
             HF_HUB_OFFLINE: "1"
             HF_HUB_DISABLE_TELEMETRY: "1"
+            UNCANNY_PORT: "${UNCANNY_PORT:-8080}"
+            UNCANNY_ALLOWED_HOSTS: "${UNCANNY_ALLOWED_HOSTS:-localhost:${UNCANNY_PORT:-8080},127.0.0.1:${UNCANNY_PORT:-8080},[::1]:${UNCANNY_PORT:-8080}}"
         volumes:
-            - /var/lib/uncanny-lab:/data
-            - /workspace/ui_library:/ui-library:ro
+            - "${UNCANNY_DATA_DIR:-./data}:/data"
+            - "${UNCANNY_UI_LIBRARY_DIR:-./ui_library}:/ui-library:ro"
         tmpfs:
             - /tmp:size=1g,mode=1777
             - /run:size=16m,mode=0755
         ports:
-            - "127.0.0.1:8080:8080"
+            - "${UNCANNY_BIND_ADDRESS:-127.0.0.1}:${UNCANNY_PORT:-8080}:${UNCANNY_PORT:-8080}"
         healthcheck:
-            test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+            test: ["CMD", "python3", "-c", "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['UNCANNY_PORT']}/healthz\", timeout=3)"]
             interval: 60s
             timeout: 5s
             retries: 3

@@ -287,7 +287,7 @@ func TestNewJobRejectsUnavailableRequiredModel(t *testing.T) {
 }
 
 func TestHostGuardRejectsDNSRebindingHost(t *testing.T) {
-	handler := hostGuard(8080, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	handler := hostGuard([]string{"localhost:8080", "127.0.0.1:8080", "[::1]:8080"}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	for host, expected := range map[string]int{
 		"localhost:8080":    http.StatusNoContent,
 		"127.0.0.1:8080":    http.StatusNoContent,
@@ -300,5 +300,16 @@ func TestHostGuardRejectsDNSRebindingHost(t *testing.T) {
 		if response.Code != expected {
 			t.Errorf("host %q status = %d, want %d", host, response.Code, expected)
 		}
+	}
+}
+
+func TestHostGuardAcceptsConfiguredHost(t *testing.T) {
+	handler := hostGuard([]string{"localhost:8080", "lab.example.test:8080"}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/api/jobs", nil)
+	req.Host = "LAB.EXAMPLE.TEST:8080"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, req)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d", response.Code)
 	}
 }

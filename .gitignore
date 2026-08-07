@@ -1,11 +1,15 @@
+# Python, JavaScript, and Go build output
 .git/
-.github/
 .venv/
 __pycache__/
 *.py[cod]
-*.so
+coverage.out
+coverage*/
+dist/
+build/
+uncanny-lab
 
-# Local state, checkpoints, and conversion inputs never belong in an image build.
+# Application state and local working directories
 data/
 cache/
 workspace/
@@ -14,6 +18,8 @@ checkpoints/
 taming-transformers/
 pytorch-pretrained-BigGAN/
 model-sources/
+
+# Checkpoints and converted model bundles are installed outside Git.
 *.pt
 *.pth
 *.ckpt
@@ -21,16 +27,7 @@ model-sources/
 *.bin
 *.onnx
 
-# Development-only sources and generated output.
-python/tests/
-tools/
-coverage.out
-coverage*/
-dist/
-build/
-uncanny-lab
-
-# Local configuration and credentials.
+# Local settings and secrets
 .env
 .env.*
 *.secret

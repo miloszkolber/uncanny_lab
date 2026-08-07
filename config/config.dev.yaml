@@ -5,7 +5,7 @@ server:
 runtime:
   device: cpu
   python_executable: python3
-  python_path: /workspace/uncanny-lab/python
+  python_path: /workspace/python
   default_precision: fp32
 
 paths:
@@ -13,7 +13,7 @@ paths:
   models: /tmp/uncanny-lab/models
   inputs: /tmp/uncanny-lab/inputs
   workspace: /tmp/uncanny-lab/workspace
-  manifests: /workspace/uncanny-lab/manifests/engines
+  manifests: /workspace/manifests/engines
   ui_library: /workspace/ui_library
 
 previews:

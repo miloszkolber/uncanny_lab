@@ -1,0 +1,7 @@
+services:
+    uncanny-lab:
+        devices: !reset []
+        group_add: !reset []
+        environment:
+            UNCANNY_DEVICE: cpu
+            XPU_VISIBLE_DEVICES: ""

@@ -86,7 +86,7 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	mux.HandleFunc("GET /ui/core-ui.css", a.uiAsset("core-ui.css", "text/css; charset=utf-8"))
 	mux.HandleFunc("GET /ui/lucide.svg", a.uiAsset("lucide.svg", "image/svg+xml"))
 	mux.Handle("/", static)
-	return securityHeaders(requestLog(logger, hostGuard(cfg.Server.Port, mux))), nil
+	return securityHeaders(requestLog(logger, hostGuard(cfg.Server.AllowedHosts, mux))), nil
 }
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {
@@ -846,14 +846,13 @@ func sameOrigin(r *http.Request) bool {
 	return err == nil && strings.EqualFold(parsed.Host, r.Host)
 }
 
-func hostGuard(port int, next http.Handler) http.Handler {
-	allowed := map[string]bool{
-		fmt.Sprintf("localhost:%d", port): true,
-		fmt.Sprintf("127.0.0.1:%d", port): true,
-		fmt.Sprintf("[::1]:%d", port):     true,
+func hostGuard(hosts []string, next http.Handler) http.Handler {
+	allowed := make(map[string]struct{}, len(hosts))
+	for _, host := range hosts {
+		allowed[strings.ToLower(host)] = struct{}{}
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !allowed[strings.ToLower(r.Host)] {
+		if _, ok := allowed[strings.ToLower(r.Host)]; !ok {
 			writeError(w, http.StatusMisdirectedRequest, "UNTRUSTED_HOST", "Request host is not allowed")
 			return
 		}
