@@ -51,6 +51,8 @@ docker run --rm --user 1000:1000 --entrypoint python \
 
 The command requires taming-transformers commit `3ba01b241669f5ade541ce990f7650a3b8f65318` and pytorch-pretrained-BigGAN commit `1e18aed2dff75db51428f13b940c38b923eb4a3d`, with clean tracked and untracked source trees. It safely loads tensor-only checkpoints where supported, validates shapes, strict state loading, TorchScript interfaces, and input gradients. All five artifacts and provenance are built and validated in one staging directory under `/data/models/bundles`. It renames that directory to an immutable version and atomically replaces `/data/models/bundle-b` with a symlink to it. Existing bundle versions remain under `/data/models/bundles` for rollback. The machine-readable report is `/data/models/bundle-b/provenance/bundle-b-conversion-report.json` and records source and output hashes, source trees, environment, canonical URLs, license references, commits, interfaces, and validation cases.
 
+See [MODEL_LICENSING.md](MODEL_LICENSING.md) for the reviewed VQGAN and BigGAN checkpoint terms and the resulting local-use policy.
+
 Optional model descriptors live at `/data/models/registry/<id>.json`:
 
 ```json
