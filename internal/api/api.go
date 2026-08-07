@@ -53,6 +53,7 @@ type API struct {
 
 var jobIDPattern = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
 var uploadIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
+var previewPathPattern = regexp.MustCompile(`^previews/[0-9]{6}\.png$`)
 
 func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *events.Broker, cfg config.Config, version string, logger *slog.Logger) (http.Handler, error) {
 	static, err := webassets.Handler()
@@ -389,15 +390,48 @@ func (a *API) useAsInput(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "get job input", err)
 		return
 	}
-	if job.Status != jobs.Completed || job.FinalPath != "final.png" {
+	artifactPath := r.URL.Query().Get("path")
+	if artifactPath == "" {
+		artifactPath = "final.png"
+	}
+	if !validInputArtifact(artifactPath) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARTIFACT", "Selected image is not a job artifact")
+		return
+	}
+	if artifactPath == "final.png" && (job.Status != jobs.Completed || job.FinalPath != "final.png") {
 		writeError(w, http.StatusConflict, "NO_FINAL_IMAGE", "Job has no final image")
 		return
 	}
-	if _, err := jobDirectory(a.cfg, job.ID); err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Final image not found")
+	directory, err := jobDirectory(a.cfg, job.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job image not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"token": "workspace/jobs/" + job.ID + "/final.png", "template": map[string]any{"parameters": map[string]string{"source_image": "workspace/jobs/" + job.ID + "/final.png"}}})
+	source, err := containedFile(directory, artifactPath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Job image not found")
+		return
+	}
+	if err := os.MkdirAll(a.cfg.Paths.Inputs, 0o750); err != nil {
+		a.internalError(w, "create inputs directory", err)
+		return
+	}
+	var random [16]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		a.internalError(w, "create input token", err)
+		return
+	}
+	id := hex.EncodeToString(random[:])
+	if err := copyFile(source, filepath.Join(a.cfg.Paths.Inputs, id+".png")); err != nil {
+		a.internalError(w, "preserve job input", err)
+		return
+	}
+	token := "inputs/" + id + ".png"
+	writeJSON(w, http.StatusOK, map[string]any{"token": token, "template": map[string]any{"parameters": map[string]string{"source_image": token}}})
+}
+
+func validInputArtifact(path string) bool {
+	return path == "final.png" || previewPathPattern.MatchString(path)
 }
 
 func (a *API) attachFrames(job *jobs.Job) {
@@ -630,6 +664,9 @@ func (a *API) artifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	if r.URL.Query().Get("download") == "1" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filepath.Base(relative)))
+	}
 	http.ServeFile(w, r, resolved)
 }
 
