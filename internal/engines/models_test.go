@@ -38,3 +38,24 @@ func TestModelPathContainmentAndHash(t *testing.T) {
 		t.Fatalf("escaped model status = %s", models[1].Status)
 	}
 }
+
+func TestModelListingEnforcesConfiguredHash(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "registry"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "model.bin"), []byte("tampered"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	descriptor := `{"id":"model-a","path":"model.bin","sha256":"0000000000000000000000000000000000000000000000000000000000000000"}`
+	if err := os.WriteFile(filepath.Join(root, "registry", "model.json"), []byte(descriptor), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	models, err := LoadModels(root, &Registry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 1 || models[0].Status != "invalid" || models[0].Hash == "" {
+		t.Fatalf("configured hash was not enforced: %+v", models)
+	}
+}

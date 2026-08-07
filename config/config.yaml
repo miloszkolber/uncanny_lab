@@ -12,7 +12,6 @@ paths:
   data: /data
   models: /data/models
   inputs: /data/inputs
-  outputs: /data/outputs
   workspace: /data/workspace
   manifests: /app/manifests/engines
   ui_library: /ui-library

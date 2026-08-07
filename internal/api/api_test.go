@@ -18,6 +18,7 @@ import (
 
 	"github.com/miloszkolber/uncanny-lab/internal/config"
 	"github.com/miloszkolber/uncanny-lab/internal/database"
+	"github.com/miloszkolber/uncanny-lab/internal/engines"
 	"github.com/miloszkolber/uncanny-lab/internal/jobs"
 )
 
@@ -247,5 +248,57 @@ func TestArtifactDownloadSetsAttachmentHeader(t *testing.T) {
 	}
 	if got := response.Header().Get("Content-Disposition"); got != `attachment; filename="000025.png"` {
 		t.Fatalf("Content-Disposition = %q", got)
+	}
+}
+
+func TestNewJobRejectsUnavailableRequiredModel(t *testing.T) {
+	root := t.TempDir()
+	models := filepath.Join(root, "models")
+	manifests := filepath.Join(root, "manifests")
+	if err := os.MkdirAll(models, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(manifests, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "id: deep-daze\nname: Deep Daze\ntype: text-to-image\nversion: 1.1.0\nmodels: [clip-vit-b-32]\n"
+	if err := os.WriteFile(filepath.Join(manifests, "deep-daze.yaml"), []byte(manifest), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := engines.Load(manifests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &API{registry: registry, cfg: config.Config{Paths: config.PathsConfig{Models: models}, Runtime: config.RuntimeConfig{Device: "cpu", DefaultPrecision: "fp32"}}}
+	request := jobs.CreateRequest{Engine: "deep-daze", Parameters: json.RawMessage(`{"prompt":"test"}`)}
+	if _, err := a.newJob(request); err == nil || !strings.Contains(err.Error(), "clip-vit-b-32") {
+		t.Fatalf("newJob error = %v, want missing model", err)
+	}
+	checkpoint := filepath.Join(models, "clip", "vit-b-32.pt")
+	if err := os.MkdirAll(filepath.Dir(checkpoint), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(checkpoint, []byte("checkpoint"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.newJob(request); err != nil {
+		t.Fatalf("newJob with available model: %v", err)
+	}
+}
+
+func TestHostGuardRejectsDNSRebindingHost(t *testing.T) {
+	handler := hostGuard(8080, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	for host, expected := range map[string]int{
+		"localhost:8080":    http.StatusNoContent,
+		"127.0.0.1:8080":    http.StatusNoContent,
+		"evil.example:8080": http.StatusMisdirectedRequest,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/api/jobs", nil)
+		req.Host = host
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		if response.Code != expected {
+			t.Errorf("host %q status = %d, want %d", host, response.Code, expected)
+		}
 	}
 }

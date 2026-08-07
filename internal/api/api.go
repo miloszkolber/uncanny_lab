@@ -86,7 +86,7 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	mux.HandleFunc("GET /ui/core-ui.css", a.uiAsset("core-ui.css", "text/css; charset=utf-8"))
 	mux.HandleFunc("GET /ui/lucide.svg", a.uiAsset("lucide.svg", "image/svg+xml"))
 	mux.Handle("/", static)
-	return securityHeaders(requestLog(logger, mux)), nil
+	return securityHeaders(requestLog(logger, hostGuard(cfg.Server.Port, mux))), nil
 }
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {
@@ -271,10 +271,13 @@ func (a *API) createJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.orchestrator.Enqueue(job.ID); err != nil {
-		job.Status, job.ErrorCode, job.ErrorMessage = jobs.Failed, "QUEUE_FULL", err.Error()
-		now := time.Now().UTC()
-		job.CompletedAt = &now
-		_ = a.repo.Save(r.Context(), job)
+		if persistErr := a.orchestrator.MarkFailed(&job, "QUEUE_FULL", err.Error()); persistErr != nil {
+			if saveErr := a.repo.Save(r.Context(), job); saveErr != nil {
+				a.logger.Error("save queue failure after metadata error", "job_id", job.ID, "error", saveErr)
+			}
+			a.internalError(w, "persist queue failure", persistErr)
+			return
+		}
 		writeError(w, http.StatusServiceUnavailable, "QUEUE_FULL", "The job queue is full")
 		return
 	}
@@ -311,10 +314,13 @@ func (a *API) duplicateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.orchestrator.Enqueue(job.ID); err != nil {
-		job.Status, job.ErrorCode, job.ErrorMessage = jobs.Failed, "QUEUE_FULL", err.Error()
-		now := time.Now().UTC()
-		job.CompletedAt = &now
-		_ = a.repo.Save(r.Context(), job)
+		if persistErr := a.orchestrator.MarkFailed(&job, "QUEUE_FULL", err.Error()); persistErr != nil {
+			if saveErr := a.repo.Save(r.Context(), job); saveErr != nil {
+				a.logger.Error("save duplicate queue failure after metadata error", "job_id", job.ID, "error", saveErr)
+			}
+			a.internalError(w, "persist duplicate queue failure", persistErr)
+			return
+		}
 		writeError(w, http.StatusServiceUnavailable, "QUEUE_FULL", "The job queue is full")
 		return
 	}
@@ -536,15 +542,36 @@ func (a *API) deleteJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_JOB_DIRECTORY", "Job directory is unsafe")
 		return
 	}
+	quarantine := ""
 	if err == nil {
-		if err := os.RemoveAll(directory); err != nil {
-			a.internalError(w, "remove job directory", err)
+		var suffix [8]byte
+		if _, err := rand.Read(suffix[:]); err != nil {
+			a.internalError(w, "prepare job deletion", err)
+			return
+		}
+		quarantine = directory + ".deleting-" + hex.EncodeToString(suffix[:])
+		if err := os.Rename(directory, quarantine); err != nil {
+			a.internalError(w, "quarantine job directory", err)
 			return
 		}
 	}
 	if err := a.repo.Delete(r.Context(), job.ID); err != nil {
+		if quarantine != "" {
+			if restoreErr := os.Rename(quarantine, directory); restoreErr != nil {
+				a.logger.Error("restore job directory after failed deletion", "job_id", job.ID, "error", restoreErr)
+			}
+		}
 		a.internalError(w, "delete job", err)
 		return
+	}
+	if quarantine != "" {
+		if err := os.RemoveAll(quarantine); err != nil {
+			if createErr := a.repo.Create(r.Context(), job); createErr == nil {
+				_ = os.Rename(quarantine, directory)
+			}
+			a.internalError(w, "remove job directory", err)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -559,6 +586,23 @@ func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 	manifest, ok := a.registry.Get(request.Engine)
 	if !ok || !manifest.IsEnabled() {
 		return jobs.Job{}, errors.New("unsupported engine")
+	}
+	models, err := engines.LoadModels(a.cfg.Paths.Models, a.registry)
+	if err != nil {
+		return jobs.Job{}, fmt.Errorf("inspect required models: %w", err)
+	}
+	statuses := make(map[string]string, len(models))
+	for _, model := range models {
+		statuses[model.ID] = model.Status
+	}
+	var missing []string
+	for _, id := range manifest.Models {
+		if statuses[id] != "available" {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) > 0 {
+		return jobs.Job{}, fmt.Errorf("required models are unavailable: %s", strings.Join(missing, ", "))
 	}
 	now := time.Now().UTC()
 	id, err := jobs.NewID(now)
@@ -795,6 +839,21 @@ func sameOrigin(r *http.Request) bool {
 	}
 	parsed, err := url.Parse(origin)
 	return err == nil && strings.EqualFold(parsed.Host, r.Host)
+}
+
+func hostGuard(port int, next http.Handler) http.Handler {
+	allowed := map[string]bool{
+		fmt.Sprintf("localhost:%d", port): true,
+		fmt.Sprintf("127.0.0.1:%d", port): true,
+		fmt.Sprintf("[::1]:%d", port):     true,
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !allowed[strings.ToLower(r.Host)] {
+			writeError(w, http.StatusMisdirectedRequest, "UNTRUSTED_HOST", "Request host is not allowed")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func randomSeed() int64 {

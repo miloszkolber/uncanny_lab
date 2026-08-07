@@ -6,6 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/miloszkolber/uncanny-lab/internal/jobs"
@@ -13,6 +17,7 @@ import (
 )
 
 var ErrNotFound = errors.New("job not found")
+var persistedJobID = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
 
 type Repository struct{ db *sql.DB }
 
@@ -31,10 +36,102 @@ func Open(path string) (*Repository, error) {
 		db.Close()
 		return nil, err
 	}
+	for _, file := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(file, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			db.Close()
+			return nil, fmt.Errorf("secure SQLite file: %w", err)
+		}
+	}
 	return r, nil
 }
 
 func (r *Repository) Close() error { return r.db.Close() }
+
+// Reconcile restores terminal jobs from their durable metadata when the SQLite index is replaced.
+func (r *Repository) Reconcile(ctx context.Context, root string) (int, error) {
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		entries = nil
+		err = nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read job artifacts: %w", err)
+	}
+	restored := 0
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !persistedJobID.MatchString(entry.Name()) {
+			continue
+		}
+		metadataPath := filepath.Join(root, entry.Name(), "metadata.json")
+		info, err := os.Lstat(metadataPath)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		file, err := os.Open(metadataPath)
+		if err != nil {
+			continue
+		}
+		var metadata struct {
+			Job jobs.Job `json:"job"`
+		}
+		decodeErr := json.NewDecoder(io.LimitReader(file, 2<<20)).Decode(&metadata)
+		closeErr := file.Close()
+		job := metadata.Job
+		terminal := job.Status == jobs.Completed || job.Status == jobs.Failed || job.Status == jobs.Cancelled
+		if decodeErr != nil || closeErr != nil || job.ID != entry.Name() || !terminal || job.CreatedAt.IsZero() {
+			continue
+		}
+		if _, err := r.Get(ctx, entry.Name()); errors.Is(err, ErrNotFound) {
+			if err := r.Create(ctx, job); err != nil {
+				return restored, fmt.Errorf("restore job %s: %w", job.ID, err)
+			}
+			restored++
+		} else if err != nil {
+			return restored, err
+		} else if err := r.Save(ctx, job); err != nil {
+			return restored, fmt.Errorf("reconcile job %s: %w", job.ID, err)
+		}
+	}
+	if err := r.backfillTerminalMetadata(ctx, root); err != nil {
+		return restored, err
+	}
+	return restored, nil
+}
+
+func (r *Repository) backfillTerminalMetadata(ctx context.Context, root string) error {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, engine, status, parameters, seed, progress_step, progress_total, preview_path, final_path, error_code, error_message, created_at, started_at, completed_at, engine_version, runtime_device, runtime_precision FROM jobs WHERE status IN (?, ?, ?) ORDER BY created_at ASC`, jobs.Completed, jobs.Failed, jobs.Cancelled)
+	if err != nil {
+		return fmt.Errorf("list terminal jobs: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		job, err := scanJob(rows)
+		if err != nil {
+			return fmt.Errorf("scan terminal jobs: %w", err)
+		}
+		directory := filepath.Join(root, job.ID)
+		path := filepath.Join(directory, "metadata.json")
+		if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
+			continue
+		}
+		if err := os.MkdirAll(directory, 0o750); err != nil {
+			return fmt.Errorf("create terminal artifact directory: %w", err)
+		}
+		data, err := json.MarshalIndent(map[string]any{"application": "Uncanny Lab", "terminal_at": job.CompletedAt, "job": job}, "", "  ")
+		if err != nil {
+			return err
+		}
+		temporary := path + ".tmp"
+		if err := os.WriteFile(temporary, append(data, '\n'), 0o640); err != nil {
+			return fmt.Errorf("write terminal metadata: %w", err)
+		}
+		if err := os.Rename(temporary, path); err != nil {
+			_ = os.Remove(temporary)
+			return fmt.Errorf("publish terminal metadata: %w", err)
+		}
+	}
+	return rows.Err()
+}
 
 func (r *Repository) migrate(ctx context.Context) error {
 	const schema = `

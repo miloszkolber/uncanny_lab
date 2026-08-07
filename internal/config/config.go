@@ -34,7 +34,6 @@ type PathsConfig struct {
 	Data      string `yaml:"data"`
 	Models    string `yaml:"models"`
 	Inputs    string `yaml:"inputs"`
-	Outputs   string `yaml:"outputs"`
 	Workspace string `yaml:"workspace"`
 	Manifests string `yaml:"manifests"`
 	UILibrary string `yaml:"ui_library"`
@@ -49,7 +48,7 @@ func defaults() Config {
 	return Config{
 		Server:   ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Runtime:  RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/app/python"},
-		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Outputs: "/data/outputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
+		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
 		Previews: PreviewConfig{Enabled: true, EverySteps: 5},
 	}
 }
@@ -82,7 +81,7 @@ func (c Config) Validate() error {
 	if c.Runtime.PythonExecutable == "" || c.Runtime.PythonPath == "" {
 		return errors.New("runtime Python executable and path are required")
 	}
-	for name, path := range map[string]string{"data": c.Paths.Data, "models": c.Paths.Models, "inputs": c.Paths.Inputs, "outputs": c.Paths.Outputs, "workspace": c.Paths.Workspace, "ui_library": c.Paths.UILibrary} {
+	for name, path := range map[string]string{"data": c.Paths.Data, "models": c.Paths.Models, "inputs": c.Paths.Inputs, "workspace": c.Paths.Workspace, "ui_library": c.Paths.UILibrary} {
 		if !filepath.IsAbs(path) {
 			return fmt.Errorf("paths.%s must be absolute", name)
 		}
@@ -97,9 +96,15 @@ func (c Config) Validate() error {
 }
 
 func (c Config) EnsureDirectories() error {
-	for _, path := range []string{c.Paths.Models, c.Paths.Inputs, c.Paths.Outputs, c.Paths.Workspace, filepath.Join(c.Paths.Workspace, "jobs")} {
+	for _, path := range []string{c.Paths.Data, c.Paths.Models, c.Paths.Inputs, c.Paths.Workspace, filepath.Join(c.Paths.Workspace, "jobs")} {
+		if path == "" {
+			continue
+		}
 		if err := os.MkdirAll(path, 0o750); err != nil {
 			return fmt.Errorf("create %s: %w", path, err)
+		}
+		if err := os.Chmod(path, 0o750); err != nil {
+			return fmt.Errorf("secure %s: %w", path, err)
 		}
 	}
 	return nil

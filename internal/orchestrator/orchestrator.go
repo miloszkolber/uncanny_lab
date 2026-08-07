@@ -96,12 +96,8 @@ func (o *Orchestrator) Recover(ctx context.Context) error {
 				return err
 			}
 		case jobs.Preparing, jobs.LoadingModel, jobs.Running, jobs.Saving:
-			now := time.Now().UTC()
 			job.Status = jobs.Failed
-			job.ErrorCode = "ENGINE_CRASHED"
-			job.ErrorMessage = "The application stopped while this job was running"
-			job.CompletedAt = &now
-			if err := o.repo.Save(ctx, job); err != nil {
+			if err := o.finish(&job, "ENGINE_CRASHED", "The application stopped while this job was running"); err != nil {
 				return err
 			}
 		}
@@ -135,6 +131,9 @@ func (o *Orchestrator) Cancel(ctx context.Context, id string) error {
 	job.ErrorCode = "CANCELLED"
 	job.ErrorMessage = "Cancelled before execution"
 	job.CompletedAt = &now
+	if err := o.writeTerminalMetadata(&job); err != nil {
+		return err
+	}
 	if err := o.repo.Save(ctx, job); err != nil {
 		return err
 	}
@@ -393,24 +392,38 @@ func (o *Orchestrator) fail(job *jobs.Job, code, message string) {
 	}
 }
 
+func (o *Orchestrator) MarkFailed(job *jobs.Job, code, message string) error {
+	job.Status = jobs.Failed
+	return o.finish(job, code, message)
+}
+
 func (o *Orchestrator) finish(job *jobs.Job, code, message string) error {
 	now := time.Now().UTC()
 	job.ErrorCode, job.ErrorMessage, job.CompletedAt = code, message, &now
-	metadataPath := ""
-	if job.Status == jobs.Completed {
-		metadata := map[string]any{"job": job, "application": "Uncanny Lab", "completed_at": now, "file_hashes": o.jobFileHashes(job.ID)}
-		metadataPath = filepath.Join(o.cfg.JobRoot(), job.ID, "metadata.json")
-		if err := atomicJSON(metadataPath, metadata); err != nil {
-			return fmt.Errorf("write completion metadata: %w", err)
-		}
+	if err := o.writeTerminalMetadata(job); err != nil {
+		return err
 	}
 	if err := o.saveTerminal(*job); err != nil {
-		if metadataPath != "" {
-			_ = os.Remove(metadataPath)
-		}
 		return err
 	}
 	o.publish(job.ID, string(job.Status), *job)
+	return nil
+}
+
+func (o *Orchestrator) writeTerminalMetadata(job *jobs.Job) error {
+	directory := filepath.Join(o.cfg.JobRoot(), job.ID)
+	if err := os.MkdirAll(directory, 0o750); err != nil {
+		return fmt.Errorf("create terminal artifact directory: %w", err)
+	}
+	metadata := map[string]any{"job": job, "application": "Uncanny Lab", "terminal_at": job.CompletedAt}
+	if job.Status == jobs.Completed {
+		metadata["completed_at"] = job.CompletedAt
+		metadata["file_hashes"] = o.jobFileHashes(job.ID)
+	}
+	path := filepath.Join(directory, "metadata.json")
+	if err := atomicJSON(path, metadata); err != nil {
+		return fmt.Errorf("write terminal metadata: %w", err)
+	}
 	return nil
 }
 

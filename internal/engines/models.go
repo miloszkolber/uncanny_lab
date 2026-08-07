@@ -60,7 +60,7 @@ func LoadModels(root string, registry *Registry) ([]ModelStatus, error) {
 		if _, found := models[descriptor.ID]; found {
 			return nil, fmt.Errorf("duplicate model ID %s", descriptor.ID)
 		}
-		models[descriptor.ID] = statusFor(root, descriptor, false)
+		models[descriptor.ID] = statusFor(root, descriptor, descriptor.SHA256 != "")
 	}
 	for _, required := range requiredModels(root, registry) {
 		if _, found := models[required.ID]; !found {

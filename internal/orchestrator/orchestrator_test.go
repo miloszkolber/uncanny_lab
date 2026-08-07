@@ -19,7 +19,7 @@ func TestErrorEventCannotBeOverwrittenByCompletion(t *testing.T) {
 	root := t.TempDir()
 	cfg := config.Config{
 		Runtime:  config.RuntimeConfig{Device: "cpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: root},
-		Paths:    config.PathsConfig{Models: filepath.Join(root, "models"), Inputs: filepath.Join(root, "inputs"), Outputs: filepath.Join(root, "outputs"), Workspace: filepath.Join(root, "workspace"), Manifests: filepath.Join(root, "manifests")},
+		Paths:    config.PathsConfig{Models: filepath.Join(root, "models"), Inputs: filepath.Join(root, "inputs"), Workspace: filepath.Join(root, "workspace"), Manifests: filepath.Join(root, "manifests")},
 		Previews: config.PreviewConfig{Enabled: true, EverySteps: 1},
 	}
 	if err := cfg.EnsureDirectories(); err != nil {
@@ -75,5 +75,37 @@ func TestJobFileHashesIncludesOnlyApprovedParameterFiles(t *testing.T) {
 	hashes := orchestrator.jobFileHashes(jobID)
 	if len(hashes) != 2 || hashes["source_image"] == "" || hashes["classifier_path"] == "" {
 		t.Fatalf("unexpected file hashes: %#v", hashes)
+	}
+}
+
+func TestQueuedCancellationWritesRecoverableMetadata(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{Paths: config.PathsConfig{Data: root, Models: filepath.Join(root, "models"), Inputs: filepath.Join(root, "inputs"), Workspace: filepath.Join(root, "workspace")}}
+	if err := cfg.EnsureDirectories(); err != nil {
+		t.Fatal(err)
+	}
+	repo, err := database.Open(cfg.DatabasePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	job := jobs.Job{ID: "123-0123456789ab", Engine: "deep-image-prior", Status: jobs.Queued, Parameters: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(), EngineVersion: "1.0.0", RuntimeDevice: "cpu", RuntimePrecision: "fp32"}
+	if err := repo.Create(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	runner := New(repo, events.NewBroker(), cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	if err := runner.Cancel(context.Background(), job.ID); err != nil {
+		t.Fatal(err)
+	}
+	metadata := filepath.Join(cfg.JobRoot(), job.ID, "metadata.json")
+	if _, err := os.Stat(metadata); err != nil {
+		t.Fatalf("terminal metadata is missing: %v", err)
+	}
+	persisted, err := repo.Get(context.Background(), job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Status != jobs.Cancelled || persisted.ErrorCode != "CANCELLED" {
+		t.Fatalf("cancelled job = %+v", persisted)
 	}
 }

@@ -42,6 +42,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer repo.Close()
+	if restored, err := repo.Reconcile(context.Background(), cfg.JobRoot()); err != nil {
+		logger.Error("reconcile artifact index", "error", err)
+		os.Exit(1)
+	} else if restored > 0 {
+		logger.Info("restored jobs from artifact metadata", "count", restored)
+	}
 
 	broker := events.NewBroker()
 	runner := orchestrator.New(repo, broker, cfg, logger)

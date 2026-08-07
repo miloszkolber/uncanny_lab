@@ -12,7 +12,6 @@ paths:
   data: /tmp/uncanny-lab
   models: /tmp/uncanny-lab/models
   inputs: /tmp/uncanny-lab/inputs
-  outputs: /tmp/uncanny-lab/outputs
   workspace: /tmp/uncanny-lab/workspace
   manifests: /workspace/uncanny-lab/manifests/engines
   ui_library: /workspace/ui_library

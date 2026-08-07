@@ -18,6 +18,8 @@ The application deliberately focuses on visible optimization, unstable represent
 
 Workers never download checkpoints. The Models screen reports expected files and verifies local hashes on request. This keeps generation reproducible and prevents a prompt from causing network access.
 
+Engines whose required checkpoints are absent are disabled in the generator and rejected by the API. Deep Image Prior remains available without a checkpoint. Install licensed checkpoints on the host before using the other engines.
+
 Expected default paths inside the data volume:
 
 ```text
@@ -52,18 +54,17 @@ The container has one writable external data mount:
 /var/lib/uncanny-lab → /data
 ```
 
-It contains the SQLite index, models, uploads, job specifications, logs, previews, final images, and exports. The only other host mount is the shared Core UI library, read-only. The root filesystem is read-only, Linux capabilities are dropped, privilege escalation is disabled, process count is bounded, `/tmp` and `/run` are isolated tmpfs mounts, and the container uses private shared memory rather than host IPC. `/dev/dri` is the sole device mapping required for PyTorch XPU.
+It contains the SQLite index, models, uploads, job specifications, logs, previews, final images, and exports. The only other host mount is the shared Core UI library, read-only. The root filesystem is read-only, Linux capabilities are dropped, privilege escalation is disabled, process count is bounded, `/tmp` and `/run` are isolated tmpfs mounts, and the container uses private shared memory rather than host IPC. The Intel render node is the sole device mapping required for PyTorch XPU.
 
 Prepare storage with the container user's ownership:
 
 ```bash
-sudo install -d -o 1000 -g 1000 /var/lib/uncanny-lab
-export VIDEO_GID="$(stat -c %g /dev/dri/card0)"
+sudo install -d -m 0750 -o 1000 -g 1000 /var/lib/uncanny-lab
 export RENDER_GID="$(stat -c %g /dev/dri/renderD128)"
 docker compose up --build
 ```
 
-Open `http://localhost:8080`. The initial security model is one trusted user on a trusted local network. Do not publish it directly to the internet.
+Open `http://localhost:8080`. Compose binds the service only to host loopback, and the HTTP server accepts only loopback Host headers to resist DNS rebinding. Workers are configured for local checkpoints and Hugging Face offline mode, but the Docker network is not an egress security boundary. Use an authenticated reverse proxy or tunnel rather than widening the port binding. A reverse proxy must send `Host: localhost:8080` upstream.
 
 ## Workflow
 
@@ -78,7 +79,7 @@ choose Text to image or Image to image
 → rerun, export ZIP, or send the result to another engine
 ```
 
-Every job directory under `/data/workspace/jobs/<job-id>` preserves `job.json`, normalized inputs, preview frames, `final.png`, stdout/stderr logs, and `metadata.json`. SQLite is only the searchable index.
+Every job directory under `/data/workspace/jobs/<job-id>` preserves `job.json`, normalized inputs, preview frames, available output images, stdout/stderr logs, and terminal `metadata.json`. SQLite is only the searchable index. At startup, terminal jobs missing from SQLite are restored from their durable metadata. Back up the entire external data directory as one unit.
 
 ## API
 
@@ -99,6 +100,9 @@ GET    /api/jobs/{id}/export
 DELETE /api/jobs/{id}
 GET    /api/events
 GET    /api/system
+GET    /healthz
+GET    /api/uploads/{token}
+GET    /artifacts/{id}/{path}
 ```
 
 Mutations enforce same-origin browser requests. Uploads are size and pixel bounded, decoded and normalized to PNG, and assigned random names. Worker inputs and model paths are resolved beneath approved roots with symlink and traversal checks.

@@ -1,7 +1,7 @@
 id: deep-daze
 name: Deep Daze
 type: text-to-image
-version: 1.0.0
+version: 1.1.0
 description: Optimizes an implicit coordinate network against a local CLIP model.
 enabled: true
 models: [clip-vit-b-32]

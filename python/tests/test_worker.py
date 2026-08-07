@@ -8,10 +8,13 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
+import yaml
+
 from uncanny_lab.common.images import write_rgb_png
 from uncanny_lab.engines.test_pattern import TestPatternEngine
 from uncanny_lab.engines.dip import DeepImagePriorEngine, build_network
 from uncanny_lab.engines.clip import freeze, vector_quantize
+from uncanny_lab.engines import ENGINES
 from uncanny_lab.errors import WorkerError
 from uncanny_lab.runner import run
 from uncanny_lab.runtime.device import Runtime, torch
@@ -19,6 +22,15 @@ from uncanny_lab.common.models import normalize_vgg
 
 
 class WorkerTests(unittest.TestCase):
+    def test_manifest_versions_match_worker_implementations(self) -> None:
+        manifests = Path(__file__).resolve().parents[2] / "manifests" / "engines"
+        declared = {}
+        for path in manifests.glob("*.yaml"):
+            manifest = yaml.safe_load(path.read_text(encoding="utf-8"))
+            declared[manifest["id"]] = manifest["version"]
+        self.assertEqual(set(declared), set(ENGINES))
+        self.assertEqual(declared, {engine_id: engine.version for engine_id, engine in ENGINES.items()})
+
     def test_validates_parameter_bounds(self) -> None:
         engine = TestPatternEngine()
         with self.assertRaisesRegex(ValueError, "width must be between"):

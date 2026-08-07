@@ -14,9 +14,8 @@ services:
             - ALL
         pids_limit: 512
         devices:
-            - /dev/dri:/dev/dri
+            - /dev/dri/renderD128:/dev/dri/renderD128
         group_add:
-            - "${VIDEO_GID:-44}"
             - "${RENDER_GID:-991}"
         shm_size: 2gb
         environment:
@@ -35,7 +34,7 @@ services:
             - /tmp:size=1g,mode=1777
             - /run:size=16m,mode=0755
         ports:
-            - "8080:8080"
+            - "127.0.0.1:8080:8080"
         healthcheck:
             test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
             interval: 60s

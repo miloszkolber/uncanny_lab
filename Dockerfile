@@ -14,7 +14,7 @@ FROM docker.io/intel/pytorch:xpu-2.11.0-ubuntu24.04@sha256:dda613c2e1ab34d963062
 ARG DEBIAN_FRONTEND=noninteractive
 COPY python/requirements-runtime.txt /tmp/requirements-runtime.txt
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm /tmp/requirements-runtime.txt

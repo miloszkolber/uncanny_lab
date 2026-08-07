@@ -28,7 +28,7 @@ def clip_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
         "width": integer(parameters.get("width"), "width", 32, 512, 256),
         "height": integer(parameters.get("height"), "height", 32, 512, 256),
         "iterations": integer(parameters.get("iterations"), "iterations", 1, 2000, 250),
-        "learning_rate": number(parameters.get("learning_rate"), "learning_rate", 1e-5, 1.0, 0.05),
+        "learning_rate": number(parameters.get("learning_rate"), "learning_rate", 1e-5, 1.0, 0.001),
     }
 
 
