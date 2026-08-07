@@ -22,6 +22,10 @@ test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontaine
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$image")" = "A local playground for early image-generation algorithms and visible optimization processes."
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.authors" }}' "$image")" = "Milosz Kolber"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "$image")" = MIT
+docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image" | grep -Fx 'HF_HUB_OFFLINE=1' >/dev/null
+docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image" | grep -Fx 'HF_HUB_DISABLE_TELEMETRY=1' >/dev/null
+docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image" | grep -Fx 'PYTHONUNBUFFERED=1' >/dev/null
+docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image" | grep -Fx 'PYTHONDONTWRITEBYTECODE=1' >/dev/null
 version=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")
 test -n "$version"
 if [[ -n "$expected_version" ]]; then

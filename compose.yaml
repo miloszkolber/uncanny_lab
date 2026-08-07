@@ -1,6 +1,6 @@
 services:
     uncanny-lab:
-        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.2}"
+        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.3}"
         restart: unless-stopped
         user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
         read_only: true
@@ -18,12 +18,8 @@ services:
             TZ: UTC
             XPU_VISIBLE_DEVICES: "0"
             UNCANNY_DEVICE: "${UNCANNY_DEVICE:-xpu}"
-            PYTHONUNBUFFERED: "1"
-            PYTHONDONTWRITEBYTECODE: "1"
             HOME: /tmp
             XDG_CACHE_HOME: /data/cache
-            HF_HUB_OFFLINE: "1"
-            HF_HUB_DISABLE_TELEMETRY: "1"
             UNCANNY_PORT: "${UNCANNY_PORT:-8080}"
             UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS: "${UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS:-false}"
             UNCANNY_ALLOWED_HOSTS: "${UNCANNY_ALLOWED_HOSTS:-localhost:${UNCANNY_PORT:-8080},127.0.0.1:${UNCANNY_PORT:-8080},[::1]:${UNCANNY_PORT:-8080}}"

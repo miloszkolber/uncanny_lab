@@ -35,6 +35,11 @@ RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w -X main.ver
 # Intel's XPU image includes PyTorch and the userspace compute runtime required by Arc B-series GPUs.
 FROM docker.io/intel/pytorch:xpu-2.11.0-ubuntu24.04@sha256:dda613c2e1ab34d9630626ffac50d530fe5e2ef5576f6fb68de7b2d360b41cd5
 
+ENV HF_HUB_OFFLINE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 ARG VERSION
 ARG REVISION
 ARG CREATED
