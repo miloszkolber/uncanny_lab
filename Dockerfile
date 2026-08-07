@@ -21,7 +21,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=go-builder /out/uncanny-lab /usr/local/bin/uncanny-lab
-COPY python /app/python
+COPY python/uncanny_lab /app/python/uncanny_lab
 COPY manifests /app/manifests
 COPY config/config.yaml /config/config.yaml
 
