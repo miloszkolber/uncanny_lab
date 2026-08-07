@@ -37,6 +37,9 @@ jobs:
               run: |
                   docker compose -f compose.yaml config --quiet
                   docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
+            - id: buildmeta
+              name: Record build timestamp
+              run: echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
             - name: Build tested Linux amd64 image
               uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
               with:
@@ -44,7 +47,10 @@ jobs:
                   platforms: linux/amd64
                   load: true
                   tags: uncanny-lab:test
-                  build-args: VERSION=pr-${{ github.event.pull_request.number }}
+                  build-args: |
+                      VERSION=pr-${{ github.event.pull_request.number }}
+                      REVISION=${{ github.sha }}
+                      CREATED=${{ steps.buildmeta.outputs.created }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
             - name: Run source-mounted Python tests in image
@@ -56,7 +62,7 @@ jobs:
                   --entrypoint python3
                   uncanny-lab:test -m unittest discover -s python/tests -v
             - name: Verify the tested final image
-              run: tools/verify_image.sh uncanny-lab:test
+              run: tools/verify_image.sh uncanny-lab:test "${{ github.sha }}"
 
     publish:
         if: github.event_name == 'push'
@@ -98,6 +104,9 @@ jobs:
               run: |
                   docker compose -f compose.yaml config --quiet
                   docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
+            - id: buildmeta
+              name: Record build timestamp
+              run: echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
             - name: Build tested Linux amd64 image once
               uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
               with:
@@ -105,7 +114,10 @@ jobs:
                   platforms: linux/amd64
                   load: true
                   tags: uncanny-lab:tested
-                  build-args: VERSION=${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+                  build-args: |
+                      VERSION=${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+                      REVISION=${{ github.sha }}
+                      CREATED=${{ steps.buildmeta.outputs.created }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
             - name: Run source-mounted Python tests in image
@@ -117,7 +129,7 @@ jobs:
                   --entrypoint python3
                   uncanny-lab:tested -m unittest discover -s python/tests -v
             - name: Verify the tested final image
-              run: tools/verify_image.sh uncanny-lab:tested
+              run: tools/verify_image.sh uncanny-lab:tested "${{ github.sha }}"
             - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
               with:
                   registry: ghcr.io

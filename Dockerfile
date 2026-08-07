@@ -1,4 +1,6 @@
 ARG VERSION=development
+ARG REVISION=unknown
+ARG CREATED=unknown
 
 FROM docker.io/library/golang:1.24-bookworm@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac AS go-builder
 
@@ -16,11 +18,18 @@ RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w -X main.ver
 FROM docker.io/intel/pytorch:xpu-2.11.0-ubuntu24.04@sha256:dda613c2e1ab34d9630626ffac50d530fe5e2ef5576f6fb68de7b2d360b41cd5
 
 ARG VERSION
+ARG REVISION
+ARG CREATED
 LABEL org.opencontainers.image.title="Uncanny Lab" \
+      org.opencontainers.image.description="A local generative-art instrument for optimization-based neural image techniques." \
       org.opencontainers.image.source="https://github.com/miloszkolber/uncanny-lab" \
+      org.opencontainers.image.url="https://github.com/miloszkolber/uncanny-lab" \
+      org.opencontainers.image.documentation="https://github.com/miloszkolber/uncanny-lab#readme" \
       org.opencontainers.image.authors="Milosz Kolber" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="${VERSION}"
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.created="${CREATED}"
 
 COPY python/requirements-runtime.txt /tmp/requirements-runtime.txt
 RUN python3 -m pip install --no-cache-dir --no-deps --require-hashes -r /tmp/requirements-runtime.txt \

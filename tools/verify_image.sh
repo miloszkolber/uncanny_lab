@@ -2,6 +2,7 @@
 set -euo pipefail
 
 image=${1:?usage: tools/verify_image.sh IMAGE}
+expected_revision=${2:-}
 name="uncanny-lab-verify-$$"
 data_dir=$(mktemp -d)
 
@@ -14,9 +15,18 @@ trap cleanup EXIT
 test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = linux/amd64
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' "$image")" = "Uncanny Lab"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab"
+test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.url" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab"
+test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.documentation" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab#readme"
+test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$image")" = "A local generative-art instrument for optimization-based neural image techniques."
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.authors" }}' "$image")" = "Milosz Kolber"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "$image")" = MIT
 test -n "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
+revision=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")
+test -n "$revision"
+test "$revision" != ac12083301cbdbe06135882d401f7877b0b512db
+if [[ -n "$expected_revision" ]]; then
+    test "$revision" = "$expected_revision"
+fi
 
 docker run --rm --entrypoint sh "$image" -ec '
     test -f /usr/share/licenses/uncanny-lab/LICENSE
