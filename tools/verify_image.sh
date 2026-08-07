@@ -9,7 +9,7 @@ data_dir=$(mktemp -d)
 cleanup() {
     docker rm -f "$name" >/dev/null 2>&1 || true
     docker run --rm --user root --entrypoint chmod -v "$data_dir:/data" "$image" -R a+rwx /data >/dev/null 2>&1 || true
-    rm -rf "$data_dir"
+    rm -rf "$data_dir" 2>/dev/null || true
 }
 trap cleanup EXIT
 
