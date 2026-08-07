@@ -54,7 +54,7 @@ Optional descriptors live at `/data/models/registry/<id>.json`:
 
 ## Install and deploy
 
-GitHub Actions will publish release images to `ghcr.io/miloszkolber/uncanny-lab` after publication is enabled. Until then, build the image locally and set `UNCANNY_IMAGE=uncanny-lab:local`. Compose is image-based and has no host-specific paths or source build step.
+The public Linux AMD64 image is available at `ghcr.io/miloszkolber/uncanny-lab:latest`. Commit-SHA and semantic-version tags are also published by GitHub Actions. Compose is image-based and has no host-specific paths or source build step.
 
 The base Compose file is for Intel XPU. It maps the selected render device and its access group:
 
