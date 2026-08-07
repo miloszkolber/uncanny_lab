@@ -14,7 +14,6 @@ paths:
   inputs: /tmp/uncanny-lab/inputs
   workspace: /tmp/uncanny-lab/workspace
   manifests: /workspace/manifests/engines
-  ui_library: /workspace/ui_library
 
 previews:
   enabled: true

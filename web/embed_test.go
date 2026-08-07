@@ -1,0 +1,70 @@
+package web
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"regexp"
+	"strings"
+	"testing"
+)
+
+func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, expected := range map[string]string{
+		"/styles.css": "/* Core UI foundation",
+		"/lucide.svg": `<symbol id="sparkles"`,
+	} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d", path, response.Code)
+		}
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), expected) {
+			t.Errorf("GET %s does not contain %q", path, expected)
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/lucide.svg", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	icons, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usedIcons := map[string]struct{}{}
+	iconPattern := regexp.MustCompile(`(?:lucide\.svg#|icon\(")([a-z-]+)`)
+	for _, asset := range []string{"static/index.html", "static/app.js"} {
+		source, err := assets.ReadFile(asset)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, match := range iconPattern.FindAllStringSubmatch(string(source), -1) {
+			usedIcons[match[1]] = struct{}{}
+		}
+	}
+	for icon := range usedIcons {
+		symbol := `<symbol id="` + icon + `" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">`
+		if !strings.Contains(string(icons), symbol) {
+			t.Errorf("lucide sprite lacks complete %q symbol", icon)
+		}
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/", nil)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "/ui/") {
+		t.Error("index references an external UI asset")
+	}
+}

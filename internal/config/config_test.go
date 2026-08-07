@@ -68,3 +68,20 @@ func TestLoadRejectsInvalidConfiguredDevice(t *testing.T) {
 		t.Fatal("Load succeeded with an unsupported UNCANNY_DEVICE")
 	}
 }
+
+func TestLoadRejectsUnknownFields(t *testing.T) {
+	for name, content := range map[string]string{
+		"obsolete UI library": "paths:\n  ui_library: /ui-library\n",
+		"server typo":         "server:\n  adress: 127.0.0.1\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(path); err == nil {
+				t.Fatal("Load succeeded with an unknown field")
+			}
+		})
+	}
+}

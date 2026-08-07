@@ -14,7 +14,6 @@ paths:
   inputs: /data/inputs
   workspace: /data/workspace
   manifests: /app/manifests/engines
-  ui_library: /ui-library
 
 previews:
   enabled: true

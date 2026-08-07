@@ -21,7 +21,7 @@ ARG VERSION
 ARG REVISION
 ARG CREATED
 LABEL org.opencontainers.image.title="Uncanny Lab" \
-      org.opencontainers.image.description="A local generative-art instrument for optimization-based neural image techniques." \
+       org.opencontainers.image.description="A local playground for early image-generation algorithms and visible optimization processes." \
       org.opencontainers.image.source="https://github.com/miloszkolber/uncanny-lab" \
       org.opencontainers.image.url="https://github.com/miloszkolber/uncanny-lab" \
       org.opencontainers.image.documentation="https://github.com/miloszkolber/uncanny-lab#readme" \

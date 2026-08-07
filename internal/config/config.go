@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -40,7 +42,6 @@ type PathsConfig struct {
 	Inputs    string `yaml:"inputs"`
 	Workspace string `yaml:"workspace"`
 	Manifests string `yaml:"manifests"`
-	UILibrary string `yaml:"ui_library"`
 }
 
 type PreviewConfig struct {
@@ -52,7 +53,7 @@ func defaults() Config {
 	return Config{
 		Server:   ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Runtime:  RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/opt/venv/lib/python3.12/site-packages"},
-		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines", UILibrary: "/ui-library"},
+		Paths:    PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines"},
 		Previews: PreviewConfig{Enabled: true, EverySteps: 5},
 	}
 }
@@ -64,8 +65,13 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("read %s: %w", path, err)
 	}
 	if err == nil {
-		if err := yaml.Unmarshal(data, &cfg); err != nil {
+		decoder := yaml.NewDecoder(bytes.NewReader(data))
+		decoder.KnownFields(true)
+		if err := decoder.Decode(&cfg); err != nil {
 			return Config{}, fmt.Errorf("decode %s: %w", path, err)
+		}
+		if err := decoder.Decode(&struct{}{}); err != io.EOF {
+			return Config{}, fmt.Errorf("decode %s: multiple YAML documents are not supported", path)
 		}
 	}
 	if value, ok := os.LookupEnv("UNCANNY_PORT"); ok {
@@ -142,7 +148,7 @@ func (c Config) Validate() error {
 	if c.Runtime.PythonExecutable == "" || c.Runtime.PythonPath == "" {
 		return errors.New("runtime Python executable and path are required")
 	}
-	for name, path := range map[string]string{"data": c.Paths.Data, "models": c.Paths.Models, "inputs": c.Paths.Inputs, "workspace": c.Paths.Workspace, "ui_library": c.Paths.UILibrary} {
+	for name, path := range map[string]string{"data": c.Paths.Data, "models": c.Paths.Models, "inputs": c.Paths.Inputs, "workspace": c.Paths.Workspace} {
 		if !filepath.IsAbs(path) {
 			return fmt.Errorf("paths.%s must be absolute", name)
 		}

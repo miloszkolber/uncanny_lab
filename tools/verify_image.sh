@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=${1:?usage: tools/verify_image.sh IMAGE}
+image=${1:?usage: tools/verify_image.sh IMAGE [EXPECTED_REVISION] [EXPECTED_VERSION]}
 expected_revision=${2:-}
+expected_version=${3:-}
 name="uncanny-lab-verify-$$"
 data_dir=$(mktemp -d)
 
@@ -18,10 +19,14 @@ test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontaine
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.url" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.documentation" }}' "$image")" = "https://github.com/miloszkolber/uncanny-lab#readme"
-test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$image")" = "A local generative-art instrument for optimization-based neural image techniques."
+test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$image")" = "A local playground for early image-generation algorithms and visible optimization processes."
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.authors" }}' "$image")" = "Milosz Kolber"
 test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "$image")" = MIT
-test -n "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
+version=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")
+test -n "$version"
+if [[ -n "$expected_version" ]]; then
+    test "$version" = "$expected_version"
+fi
 revision=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")
 test -n "$revision"
 test "$revision" != ac12083301cbdbe06135882d401f7877b0b512db
@@ -45,11 +50,29 @@ docker run --rm --entrypoint python3 "$image" -m uncanny_lab.runner --self-test 
 chmod 777 "$data_dir"
 docker run --rm --user root --entrypoint chown -v "$data_dir:/data" "$image" -R 1000:1000 /data >/dev/null
 docker run -d --name "$name" -e UNCANNY_DEVICE=cpu -v "$data_dir:/data" "$image" >/dev/null
+ready=false
 for _ in {1..30}; do
     if docker exec "$name" python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/healthz", timeout=1).read()' >/dev/null 2>&1; then
-        exit 0
+        ready=true
+        break
     fi
     sleep 1
 done
-docker logs "$name" >&2
-exit 1
+if [[ "$ready" != true ]]; then
+    docker logs "$name" >&2
+    exit 1
+fi
+
+docker exec -e IMAGE_VERSION="$version" "$name" python3 -c '
+import json
+import os
+import urllib.request
+
+for path, expected in (("/styles.css", b"/* Core UI foundation"), ("/lucide.svg", b"symbol id=\"sparkles\"")):
+    with urllib.request.urlopen("http://127.0.0.1:8080" + path, timeout=3) as response:
+        assert response.read().find(expected) >= 0, path
+with urllib.request.urlopen("http://127.0.0.1:8080/", timeout=3) as response:
+    assert b"/ui/" not in response.read()
+with urllib.request.urlopen("http://127.0.0.1:8080/api/system", timeout=3) as response:
+    assert json.load(response)["application_version"] == os.environ["IMAGE_VERSION"]
+'

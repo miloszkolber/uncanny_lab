@@ -83,8 +83,6 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 	mux.HandleFunc("GET /api/events", a.streamEvents)
 	mux.HandleFunc("GET /api/system", a.system)
 	mux.HandleFunc("GET /artifacts/{id}/{path...}", a.artifact)
-	mux.HandleFunc("GET /ui/core-ui.css", a.uiAsset("core-ui.css", "text/css; charset=utf-8"))
-	mux.HandleFunc("GET /ui/lucide.svg", a.uiAsset("lucide.svg", "image/svg+xml"))
 	mux.Handle("/", static)
 	return securityHeaders(requestLog(logger, hostGuard(cfg.Server.AllowedHosts, mux))), nil
 }
@@ -754,19 +752,6 @@ func (a *API) system(w http.ResponseWriter, r *http.Request) {
 func (a *API) internalError(w http.ResponseWriter, operation string, err error) {
 	a.logger.Error(operation, "error", err)
 	writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The request could not be completed")
-}
-
-func (a *API) uiAsset(name, contentType string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		path, err := containedFile(a.cfg.Paths.UILibrary, name)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Cache-Control", "public, max-age=3600")
-		http.ServeFile(w, r, path)
-	}
 }
 
 func containedFile(root, relative string) (string, error) {

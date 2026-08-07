@@ -1,175 +1,126 @@
 # Uncanny Lab
 
-Uncanny Lab is a local generative-art instrument for optimization-based neural image techniques. Its Go control plane provides the web interface, SQLite history, one-worker queue, process lifecycle, uploads, model inventory, and artifacts. Replaceable Python workers execute PyTorch workloads through a shared Intel XPU or CPU runtime.
+Uncanny Lab is a local playground for early, pre-diffusion image-generation algorithms and their visible optimization processes. Run an engine, tune its parameters, and follow intermediate frames from the browser. The browser UI and backend are served together, with no separate API setup required.
 
-The application deliberately focuses on visible optimization, unstable representations, classifier bias, intermediate frames, and pre-diffusion visual processes.
+## Features
 
-## Requirements
+- Local, one-worker image-generation queue with saved previews, artifacts, and history
+- Text-to-image and image-to-image optimization workflows
+- Intel XPU runtime with a CPU-only development mode
+- No checkpoint downloads by the application or container
 
-Images target Linux x86-64 (`linux/amd64`). Production generation requires a compatible Intel XPU runtime, access to its render device, and the Intel PyTorch XPU userspace included in the image. CPU mode is suitable for development and checkpoint-free smoke tests, but substantial generation workloads need XPU hardware.
+## Supported engines
 
-The application expects an external Core UI library containing `core-ui.css` and `lucide.svg`. It is mounted read-only at `/ui-library`. By default Compose uses `./ui_library`, so create or bind that directory before starting the service.
+| Type | Engines |
+| --- | --- |
+| Text to image | Deep Daze, VQGAN + CLIP, Big Sleep |
+| Image to image | Neural Style Transfer, DeepDream, Activation Maximization, Deep Image Prior |
 
-Checkpoints are not downloaded or distributed by this repository or its image. Obtain them separately and comply with their terms. See [MODEL_LICENSING.md](MODEL_LICENSING.md) for the reviewed VQGAN and BigGAN checkpoint terms and the resulting local-use policy.
+Deep Image Prior needs no checkpoint. The other engines remain unavailable until their required local files are present.
 
-## Engines and model storage
+## Checkpoints
 
-| Workflow | Engine | Local assets |
-| --- | --- | --- |
-| Text to image | Deep Daze | OpenCLIP state dictionary |
-| Text to image | VQGAN + CLIP | OpenCLIP state dictionary, VQ codebook, and portable TorchScript decoder |
-| Text to image | Big Sleep | OpenCLIP state dictionary and portable class-conditioned generator |
-| Image to image | Neural Style Transfer | TorchVision-compatible VGG19 state dictionary |
-| Image to image | DeepDream | TorchVision-compatible VGG19 state dictionary |
-| Image to image | Activation Maximization | TorchVision-compatible VGG19 state dictionary |
-| Image to image | Deep Image Prior | No checkpoint |
+Download checkpoints yourself, verify their terms, and convert them before use. Recommended sources are [TorchVision VGG19](https://download.pytorch.org/models/vgg19-dcbb9e9d.pth), [official OpenAI CLIP ViT-B/32](https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt), [CompVis VQGAN ImageNet f16/16384](https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fckpts%2Flast.ckpt&dl=1), and [Hugging Face BigGAN-deep-256](https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-pytorch_model.bin).
 
-Workers never download checkpoints. The Models screen reports expected files and verifies local hashes on request. Engines with missing required checkpoints are disabled in the generator and rejected by the API. Deep Image Prior remains available without a checkpoint.
-
-The standard bundle layout inside the data mount is:
+The original files are not runtime-ready. Convert them with `tools/convert_bundle_b.py` and its documented pinned conversion sources. The resulting layout under the data directory must be:
 
 ```text
-/data/models/bundle-b/classifiers/vgg19.pt
-/data/models/bundle-b/clip/vit-b-32.pt
-/data/models/bundle-b/vqgan/decoder.pt
-/data/models/bundle-b/vqgan/codebook.pt
-/data/models/bundle-b/biggan/generator.pt
+models/bundle-b/classifiers/vgg19.pt
+models/bundle-b/clip/vit-b-32.pt
+models/bundle-b/vqgan/decoder.pt
+models/bundle-b/vqgan/codebook.pt
+models/bundle-b/biggan/generator.pt
 ```
 
-VGG files must contain a TorchVision-compatible VGG19 `state_dict`. CLIP files must contain an OpenCLIP `ViT-B-32` `state_dict` built with QuickGELU. The VQGAN decoder accepts a quantized BCHW embedding grid and returns BCHW RGB at 16 times the input spatial dimensions. Its codebook is a weights-only state dictionary containing `embedding.weight` `[16384,256]`. The class-conditioned generator accepts `z [N,128]` and class-probability tensors `[N,1000]` with truncation fixed to 1.0.
+The converter validates the expected VGG19 and CLIP state dictionaries and creates the portable VQGAN decoder, VQGAN codebook, and BigGAN generator formats that the app expects. Do not substitute arbitrary checkpoints. You are responsible for verifying each checkpoint's license and terms before downloading, converting, or using it.
 
-Optional descriptors live at `/data/models/registry/<id>.json`:
+### Bundle B conversion
 
-```json
-{
-  "id": "clip-vit-b-32",
-  "path": "bundle-b/clip/vit-b-32.pt",
-  "sha256": "optional expected hash",
-  "family": "CLIP",
-  "engines": ["deep-daze", "vqgan-clip", "big-sleep"],
-  "license": "checkpoint license",
-  "notes": "local OpenCLIP state_dict"
-}
-```
-
-## Install and deploy
-
-The public Linux AMD64 image is available at `ghcr.io/miloszkolber/uncanny-lab:latest`. Commit-SHA and semantic-version tags are also published by GitHub Actions. Compose is image-based and has no host-specific paths or source build step.
-
-The base Compose file is for Intel XPU. It maps the selected render device and its access group:
+The converter requires clean checkouts of [`CompVis/taming-transformers`](https://github.com/CompVis/taming-transformers) at `3ba01b241669f5ade541ce990f7650a3b8f65318` and [`huggingface/pytorch-pretrained-BigGAN`](https://github.com/huggingface/pytorch-pretrained-BigGAN) at `1e18aed2dff75db51428f13b940c38b923eb4a3d`. Download the source files with these exact names: `data/models/classifiers/vgg19.pt`, `data/model-sources/ViT-B-32.pt`, `data/model-sources/vqgan-imagenet-f16-16384.ckpt`, `data/model-sources/vqgan-imagenet-f16-16384.yaml` from `https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fconfigs%2Fmodel.yaml&dl=1`, `data/model-sources/biggan-deep-256.bin`, and `data/model-sources/biggan-deep-256-config.json` from `https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-config.json`.
 
 ```bash
-mkdir -p data ui_library
+mkdir -p data/model-sources data/models/classifiers
+curl -L https://download.pytorch.org/models/vgg19-dcbb9e9d.pth -o data/models/classifiers/vgg19.pt
+curl -L https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt -o data/model-sources/ViT-B-32.pt
+curl -L 'https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fckpts%2Flast.ckpt&dl=1' -o data/model-sources/vqgan-imagenet-f16-16384.ckpt
+curl -L 'https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fconfigs%2Fmodel.yaml&dl=1' -o data/model-sources/vqgan-imagenet-f16-16384.yaml
+curl -L https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-pytorch_model.bin -o data/model-sources/biggan-deep-256.bin
+curl -L https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-config.json -o data/model-sources/biggan-deep-256-config.json
+git clone https://github.com/CompVis/taming-transformers.git taming-transformers
+git -C taming-transformers checkout 3ba01b241669f5ade541ce990f7650a3b8f65318
+git clone https://github.com/huggingface/pytorch-pretrained-BigGAN.git pytorch-pretrained-BigGAN
+git -C pytorch-pretrained-BigGAN checkout 1e18aed2dff75db51428f13b940c38b923eb4a3d
+docker run --rm --user "$(id -u):$(id -g)" --entrypoint python3 \
+  -e PYTHONPATH=/workspace/python -v "$PWD:/workspace:ro" -v "$PWD/data:/data" \
+  -v "$PWD/taming-transformers:/sources/taming:ro" -v "$PWD/pytorch-pretrained-BigGAN:/sources/biggan:ro" \
+  -w /workspace ghcr.io/miloszkolber/uncanny-lab:0.1 tools/convert_bundle_b.py \
+  --sources /data/model-sources --models /data/models --vgg-source /data/models/classifiers/vgg19.pt \
+  --taming-source /sources/taming --biggan-source /sources/biggan
+```
+
+## Quick start
+
+The current image release is `0.1`. Image builds and publication are manual GitHub Actions dispatches.
+
+For Intel XPU, create a persistent data directory, provide access to the render device, and start Compose:
+
+```bash
+export UNCANNY_UID="$(id -u)"
+export UNCANNY_GID="$(id -g)"
+mkdir -p data
 export RENDER_GID="$(stat -c %g /dev/dri/renderD128)"
 docker compose up -d
 ```
 
-Compose variables are optional and can be supplied in the shell or a local `.env` file:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `UNCANNY_IMAGE` | `ghcr.io/miloszkolber/uncanny-lab:latest` | Image reference, including a pinned release or commit tag. |
-| `UNCANNY_DATA_DIR` | `./data` | Host directory for all persistent state and locally obtained checkpoints. |
-| `UNCANNY_UI_LIBRARY_DIR` | `./ui_library` | Required external Core UI library directory, mounted read-only. |
-| `UNCANNY_UID` | `1000` | Numeric user ID used inside the container for mounted data. |
-| `UNCANNY_GID` | `1000` | Numeric primary group ID used inside the container for mounted data. |
-| `UNCANNY_RENDER_DEVICE` | `/dev/dri/renderD128` | Host Intel render-device node mapped to the fixed container render node. |
-| `RENDER_GID` | `991` | Numeric group that can access `UNCANNY_RENDER_DEVICE`. |
-| `UNCANNY_DEVICE` | `xpu` | Worker device for the XPU stack. The CPU override sets this to `cpu`. |
-| `UNCANNY_BIND_ADDRESS` | `127.0.0.1` | Host address used for the published port. |
-| `UNCANNY_PORT` | `8080` | Host and container HTTP port. |
-| `UNCANNY_ALLOWED_HOSTS` | loopback hosts for `UNCANNY_PORT` | Comma-separated exact HTTP `Host` header values, such as `lab.example.test:8080`. |
-
-Open `http://localhost:8080`. The default port binding is loopback-only. To publish through an authenticated reverse proxy or tunnel, set both `UNCANNY_BIND_ADDRESS` and `UNCANNY_ALLOWED_HOSTS` deliberately. The allowlist trims and lowercases entries, always includes loopback hosts for the configured port, and rejects empty or wildcard entries. Use complete Host header values, including non-default ports. A reverse proxy must preserve or set an allowed upstream `Host` value.
-
-For CPU-only development or smoke testing, use the CPU override. It removes the XPU device and supplementary render group requirements and selects the CPU worker:
+For CPU-only development or checkpoint-free smoke tests:
 
 ```bash
-mkdir -p data ui_library
-UNCANNY_IMAGE=uncanny-lab:local docker compose -f compose.yaml -f compose.cpu.yaml up -d
+export UNCANNY_UID="$(id -u)"
+export UNCANNY_GID="$(id -g)"
+mkdir -p data
+docker compose -f compose.yaml -f compose.cpu.yaml up -d
 ```
 
-The container has one writable external mount, `/data`, which holds the SQLite index, models, uploads, job specifications, logs, previews, final images, and exports. The only other host mount is the external Core UI library, read-only. The root filesystem is read-only, capabilities are dropped, privilege escalation is disabled, process count is bounded, `/tmp` and `/run` are isolated tmpfs mounts, and the Intel render node is the only device mapping. Docker networking is not an egress security boundary. Mutating requests retain same-origin checks even when additional HTTP hosts are allowed.
+Open `http://localhost:8080`. The browser UI communicates with its own local backend and does not require a separate API setup.
 
-Back up the complete data directory as one unit.
+## Minimal configuration
 
-## Build from source
+Compose defaults to `ghcr.io/miloszkolber/uncanny-lab:0.1`, stores persistent state in `./data`, and binds HTTP to `127.0.0.1:8080`. Set only the variables you need in the shell or a local `.env` file:
 
-Build the production image locally when developing or testing a change:
+```text
+UNCANNY_IMAGE=ghcr.io/miloszkolber/uncanny-lab:0.1
+UNCANNY_DATA_DIR=./data
+UNCANNY_UID=1000
+UNCANNY_GID=1000
+UNCANNY_PORT=8080
+UNCANNY_DEVICE=xpu
+```
+
+For XPU hosts, `UNCANNY_RENDER_DEVICE` defaults to `/dev/dri/renderD128` and `RENDER_GID` must be the group allowed to use that device. Use the CPU Compose override instead of mapping a device when no XPU is available. Set `UNCANNY_BIND_ADDRESS` and `UNCANNY_ALLOWED_HOSTS` deliberately when placing the service behind a reverse proxy.
+
+## Build and test
+
+Build a local Linux AMD64 image and use it with either Compose configuration:
 
 ```bash
 docker build --platform linux/amd64 -t uncanny-lab:local .
-UNCANNY_IMAGE=uncanny-lab:local docker compose up
+UNCANNY_IMAGE=uncanny-lab:local docker compose -f compose.yaml -f compose.cpu.yaml up
 ```
 
-For Go and Python development, use a copy of `config/config.dev.yaml` with absolute paths appropriate to your checkout and UI library. The sample assumes a source mount at `/workspace` and stores disposable data under `/tmp/uncanny-lab`.
+Useful checks:
 
 ```bash
-make test
 go test -race ./...
-make vet
+go vet ./...
+python3 -m compileall -q python tools
+PYTHONPATH=python python3 -m unittest discover -s python/tests -v
+node --check web/static/app.js
 bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
-docker compose config --quiet
+docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
 tools/verify_image.sh uncanny-lab:local
 ```
 
-## Bundle B conversion and provenance
+## Data and security
 
-Conversion is intentionally separate from the production image. It requires the production Python environment plus `git` and local source checkouts. Use generic absolute paths for your checkout, persistent data directory, and conversion sources:
-
-```bash
-docker run --rm --user 1000:1000 --entrypoint python \
-  -e PYTHONPATH=/workspace/python \
-  -v /absolute/path/to/uncanny-lab:/workspace:ro \
-  -v /absolute/path/to/uncanny-data:/data \
-  -v /absolute/path/to/taming-transformers:/sources/taming:ro \
-  -v /absolute/path/to/pytorch-pretrained-BigGAN:/sources/biggan:ro \
-  -w /workspace ghcr.io/miloszkolber/uncanny-lab:latest tools/convert_bundle_b.py \
-  --sources /data/model-sources --models /data/models \
-  --vgg-source /data/models/classifiers/vgg19.pt \
-  --taming-source /sources/taming --biggan-source /sources/biggan
-```
-
-The converter requires its documented source revisions and clean source trees. It safely loads tensor-only checkpoints where supported, validates shapes, strict state loading, TorchScript interfaces, and input gradients. It builds all artifacts and provenance in one staging directory under `/data/models/bundles`, then atomically publishes `/data/models/bundle-b` as a stable symlink. Existing bundle versions remain available for rollback. The machine-readable report is `/data/models/bundle-b/provenance/bundle-b-conversion-report.json` and records source and output hashes, source trees, environment, canonical URLs, license references, interfaces, and validation cases.
-
-## Workflow
-
-```text
-choose Text to image or Image to image
-→ select an engine and its real algorithm controls
-→ upload source/style material where applicable
-→ queue one job
-→ inspect live previews and earlier iterations
-→ cancel or complete without losing frames
-→ open the visual history
-→ rerun, export ZIP, or send the result to another engine
-```
-
-Every job directory under `/data/workspace/jobs/<job-id>` preserves `job.json`, normalized inputs, preview frames, available output images, stdout/stderr logs, and terminal `metadata.json`. SQLite is the searchable index. At startup, terminal jobs missing from SQLite are restored from durable metadata.
-
-## API
-
-The embedded UI uses the same local API available to scripts:
-
-```text
-GET    /api/engines
-GET    /api/models
-POST   /api/models/{id}/verify
-POST   /api/uploads
-GET    /api/uploads/{token}
-GET    /api/jobs
-POST   /api/jobs
-GET    /api/jobs/{id}
-POST   /api/jobs/{id}/cancel
-POST   /api/jobs/{id}/duplicate
-POST   /api/jobs/{id}/use-as-input
-GET    /api/jobs/{id}/export
-DELETE /api/jobs/{id}
-GET    /api/events
-GET    /api/system
-GET    /healthz
-GET    /artifacts/{id}/{path}
-```
-
-Mutations enforce same-origin browser requests. Uploads are size- and pixel-bounded, decoded and normalized to PNG, and assigned random names. Worker inputs and model paths are resolved beneath approved roots with symlink and traversal checks.
+`/data` holds the SQLite index, checkpoints, uploads, job specifications, logs, previews, final images, and exports. Back it up as one unit. The container does not download models, but Docker networking is not an egress boundary. Keep checkpoints and generated images private as appropriate, review model terms, and expose the default loopback-only service only through a deliberately configured proxy or tunnel.
