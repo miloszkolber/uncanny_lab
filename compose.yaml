@@ -1,6 +1,6 @@
 services:
     uncanny-lab:
-        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.3}"
+        image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.1.2}"
         restart: unless-stopped
         user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
         read_only: true

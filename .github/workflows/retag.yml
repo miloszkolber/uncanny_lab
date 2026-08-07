@@ -1,0 +1,42 @@
+name: Retag existing image
+
+on:
+    workflow_dispatch:
+        inputs:
+            source:
+                description: Existing image tag to reuse
+                required: true
+                type: string
+            target:
+                description: New semantic-version tag
+                required: true
+                type: string
+
+permissions:
+    packages: write
+
+jobs:
+    retag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Validate tags
+              env:
+                  SOURCE: ${{ inputs.source }}
+                  TARGET: ${{ inputs.target }}
+              run: |
+                  [[ "$SOURCE" =~ ^[0-9]+(\.[0-9]+)*$ ]]
+                  [[ "$TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            - name: Retag without rebuilding
+              env:
+                  IMAGE: ghcr.io/${{ github.repository_owner }}/uncanny-lab
+                  SOURCE: ${{ inputs.source }}
+                  TARGET: ${{ inputs.target }}
+              run: |
+                  docker pull "$IMAGE:$SOURCE"
+                  docker tag "$IMAGE:$SOURCE" "$IMAGE:$TARGET"
+                  docker push "$IMAGE:$TARGET"

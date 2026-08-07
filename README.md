@@ -55,14 +55,14 @@ git -C pytorch-pretrained-BigGAN checkout 1e18aed2dff75db51428f13b940c38b923eb4a
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint python3 \
   -e PYTHONPATH=/workspace/python -v "$PWD:/workspace:ro" -v "$PWD/data:/data" \
   -v "$PWD/taming-transformers:/sources/taming:ro" -v "$PWD/pytorch-pretrained-BigGAN:/sources/biggan:ro" \
-  -w /workspace ghcr.io/miloszkolber/uncanny-lab:0.3 tools/convert_bundle_b.py \
+  -w /workspace ghcr.io/miloszkolber/uncanny-lab:0.1.2 tools/convert_bundle_b.py \
   --sources /data/model-sources --models /data/models --vgg-source /data/models/classifiers/vgg19.pt \
   --taming-source /sources/taming --biggan-source /sources/biggan
 ```
 
 ## Quick start
 
-The current image release is `0.3`. Image builds and publication are manual GitHub Actions dispatches.
+The current image release is `0.1.2`. Image builds and publication are manual GitHub Actions dispatches. Patch releases use the `0.1.x` series until a feature release is justified. Existing images can be retagged without rebuilding through the manual `Retag existing image` workflow.
 
 For Intel XPU, create a persistent data directory, provide access to the render device, and start Compose:
 
@@ -87,10 +87,10 @@ Open `http://localhost:8080`. The browser UI communicates with its own local bac
 
 ## Minimal configuration
 
-Compose defaults to `ghcr.io/miloszkolber/uncanny-lab:0.3`, stores persistent state in `./data`, and binds HTTP to `127.0.0.1:8080`. Set only the variables you need in the shell or a local `.env` file:
+Compose defaults to `ghcr.io/miloszkolber/uncanny-lab:0.1.2`, stores persistent state in `./data`, and binds HTTP to `127.0.0.1:8080`. Set only the variables you need in the shell or a local `.env` file:
 
 ```text
-UNCANNY_IMAGE=ghcr.io/miloszkolber/uncanny-lab:0.3
+UNCANNY_IMAGE=ghcr.io/miloszkolber/uncanny-lab:0.1.2
 UNCANNY_DATA_DIR=./data
 UNCANNY_UID=1000
 UNCANNY_GID=1000
