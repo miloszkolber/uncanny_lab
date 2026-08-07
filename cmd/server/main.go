@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -71,11 +72,16 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	listener, err := net.Listen(listenNetwork(cfg.Server.Host), server.Addr)
+	if err != nil {
+		logger.Error("listen", "address", server.Addr, "error", err)
+		os.Exit(1)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("server started", "address", server.Addr, "version", version)
-		errCh <- server.ListenAndServe()
+		errCh <- server.Serve(listener)
 	}()
 
 	sigCh := make(chan os.Signal, 1)
@@ -96,4 +102,15 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "shutdown:", err)
 	}
+}
+
+func listenNetwork(host string) string {
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "tcp"
+	}
+	if ip.To4() != nil {
+		return "tcp4"
+	}
+	return "tcp6"
 }
