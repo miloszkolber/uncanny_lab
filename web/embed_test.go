@@ -15,8 +15,9 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, expected := range map[string]string{
-		"/styles.css": "/* Core UI foundation",
-		"/lucide.svg": `<symbol id="sparkles"`,
+		"/styles.css":  "/* Core UI foundation",
+		"/lucide.svg":  `<symbol id="sparkles"`,
+		"/favicon.svg": `<svg xmlns="http://www.w3.org/2000/svg"`,
 	} {
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		response := httptest.NewRecorder()
@@ -75,6 +76,7 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`id="installer-dialog-policy"`,
 		`id="confirm-error"`,
 		`id="confirm-progress"`,
+		`href="/favicon.svg"`,
 		`id="models-error"`,
 		`mobile-dialog-close`,
 		`class="app-toast"`,
@@ -103,6 +105,9 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`modelVersion`,
 		`connectEventStream`,
 		`selectMode`,
+		`field-wide`,
+		`engine-description`,
+		`aria-describedby`,
 		`state.jobStatusKey`,
 		`confirmError`,
 	} {
