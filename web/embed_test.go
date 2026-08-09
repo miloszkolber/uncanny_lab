@@ -73,6 +73,12 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`id="installer-acknowledgement"`,
 		`id="installer-confirm"`,
 		`id="installer-dialog-policy"`,
+		`id="confirm-error"`,
+		`id="confirm-progress"`,
+		`id="models-error"`,
+		`mobile-dialog-close`,
+		`class="app-toast"`,
+		`aria-label="Generation progress"`,
 		`role="dialog"`,
 	} {
 		if !strings.Contains(string(body), expected) {
@@ -90,9 +96,28 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`policy_version: version`,
 		`operation_id: operationID`,
 		`document.createElement("progress")`,
+		`inputRevisions`,
+		`retryState`,
+		`Promise.allSettled`,
+		`init-engines`,
+		`modelVersion`,
+		`connectEventStream`,
+		`selectMode`,
+		`state.jobStatusKey`,
+		`confirmError`,
 	} {
 		if !strings.Contains(string(app), expected) {
 			t.Errorf("installer frontend does not contain %q", expected)
 		}
+	}
+	if count := strings.Count(string(app), `new EventSource("/api/events")`); count != 1 {
+		t.Errorf("frontend creates %d event streams, want exactly 1 construction site", count)
+	}
+	styles, err := assets.ReadFile("static/styles.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(styles), `.ui-badge[data-state="running"]`) {
+		t.Error("running badges must retain the neutral Core UI state treatment")
 	}
 }

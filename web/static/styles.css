@@ -107,6 +107,10 @@
     --ui-backdrop-blur-sm: 8px;
     --ui-backdrop-blur-md: 12px;
     --ui-backdrop-blur-lg: 16px;
+    --ui-motion-fast: 160ms;
+    --ui-motion-spin: 0.8s;
+    --ui-lab-history-card-min: 17rem;
+    --ui-lab-diagnostic-card-min: 15rem;
     --ui-reduced-motion-duration: 0.01ms;
     --ui-stripe-pattern: repeating-linear-gradient(
         135deg,
@@ -633,7 +637,7 @@ textarea:focus-visible,
     border-right-color: transparent;
     border-radius: var(--ui-radius-full);
     content: "";
-    animation: ui-spin 0.8s linear infinite;
+    animation: ui-spin var(--ui-motion-spin) linear infinite;
 }
 
 .ui-icon-button {
@@ -1398,6 +1402,11 @@ button, input, select, textarea { font: inherit; }
 .field-group { display: grid; gap: var(--ui-space-3); }
 .field-group + .field-group { padding-top: var(--ui-space-4); border-top: var(--ui-border-width) solid var(--ui-border-default); }
 .field-group-title { margin: 0; color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-font-size-xs); font-weight: var(--ui-font-weight-medium); letter-spacing: var(--ui-letter-spacing-wide); text-transform: uppercase; }
+.field-group[open] { gap: var(--ui-space-3); }
+.field-group > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); padding-block: var(--ui-space-2); cursor: pointer; list-style: none; }
+.field-group > summary::-webkit-details-marker { display: none; }
+.field-group > summary::after { color: var(--ui-text-tertiary); content: "+"; font-family: var(--ui-font-mono); font-size: var(--ui-font-size-base); }
+.field-group[open] > summary::after { content: "−"; }
 .upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
 .upload-box { display: grid; gap: var(--ui-space-2); }
 .upload-preview { width: 100%; aspect-ratio: 1; object-fit: cover; border: var(--ui-border-width) solid var(--ui-border-default); background: var(--ui-media-bg); }
@@ -1452,3 +1461,169 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 56.25rem) { .generate-workspace { min-height: auto; } .stage-panel { min-height: calc(var(--ui-space-16) * 8); } }
 @media (max-width: 56.25rem) { .bundle-details { grid-template-columns: 1fr; } }
 @media (max-width: 37.5rem) { .lab-header { align-items: start; flex-direction: column; padding-block: var(--ui-space-3); } .field-grid, .upload-grid { grid-template-columns: 1fr; } .history-grid, .diagnostic-grid, .model-family { padding: var(--ui-space-4); } .bundle-installer { margin: var(--ui-space-4); padding: var(--ui-space-4); } }
+
+/* Lab polish and responsive safeguards. */
+.ui-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-2);
+    margin: 0;
+    color: var(--ui-text-secondary);
+}
+
+.ui-loading::before {
+    width: var(--ui-space-3);
+    height: var(--ui-space-3);
+    border: var(--ui-border-width) solid var(--ui-text-tertiary);
+    border-right-color: transparent;
+    border-radius: var(--ui-radius-full);
+    content: "";
+    animation: ui-spin var(--ui-motion-spin) linear infinite;
+}
+
+.ui-error-state {
+    display: grid;
+    justify-items: start;
+    gap: var(--ui-space-3);
+    padding: var(--ui-space-6);
+    border: var(--ui-border-width) solid var(--ui-danger);
+    background: var(--ui-danger-muted);
+    color: var(--ui-text-primary);
+}
+
+.ui-error-state p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.app-toast {
+    position: fixed;
+    right: var(--ui-space-6);
+    bottom: var(--ui-space-6);
+    z-index: var(--ui-z-toast);
+    width: min(var(--ui-copy-max), calc(100vw - 2 * var(--ui-space-6)));
+    margin: 0;
+    padding: var(--ui-space-3) var(--ui-space-4);
+    border: var(--ui-border-width) solid var(--ui-border-hover);
+    background: var(--ui-surface-raised);
+    color: var(--ui-text-primary);
+    box-shadow: var(--ui-shadow-dialog);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(var(--ui-space-2));
+    transition: opacity var(--ui-motion-fast) ease, transform var(--ui-motion-fast) ease;
+}
+
+.app-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ui-badge[data-state="ok"] {
+    border-color: var(--ui-success);
+    color: var(--ui-success-text);
+}
+
+.ui-badge[data-state="warning"] {
+    border-color: var(--ui-warning);
+    color: var(--ui-warning);
+}
+
+.ui-badge[data-state="error"] {
+    border-color: var(--ui-danger);
+    color: var(--ui-danger-hover);
+}
+
+.job-card[data-state="ok"] { border-color: var(--ui-success-ring); }
+.job-card[data-state="error"] { border-color: var(--ui-danger-muted); }
+.model-card[data-state="warning"] { border-color: var(--ui-warning-muted); }
+.model-card[data-state="error"] { border-color: var(--ui-danger-muted); }
+
+.history-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--ui-lab-history-card-min)), 1fr));
+}
+
+.diagnostic-grid,
+.model-family {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--ui-lab-diagnostic-card-min)), 1fr));
+}
+
+.job-thumb img {
+    display: block;
+}
+
+.lightbox-main {
+    position: relative;
+}
+
+.mobile-dialog-close {
+    display: none;
+    position: absolute;
+    top: var(--ui-space-4);
+    right: var(--ui-space-4);
+    z-index: var(--ui-z-lightbox);
+}
+
+body.dialog-open {
+    overflow: hidden;
+}
+
+@media (max-width: 56.25rem) {
+    .mobile-dialog-close { display: inline-grid; }
+    .lightbox-info .dialog-top .ui-icon-button { display: none; }
+
+    .action-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .action-row .ui-button {
+        min-width: 0;
+        width: 100%;
+        white-space: normal;
+    }
+
+    .lab-header .ui-tabs {
+        width: 100%;
+        max-width: 100%;
+        margin-left: 0;
+        overflow-x: auto;
+        justify-content: flex-start;
+        scrollbar-width: thin;
+    }
+
+    .lab-header .ui-tab {
+        flex: 0 0 auto;
+    }
+}
+
+@media (max-width: 37.5rem) {
+    .app-toast {
+        right: var(--ui-space-4);
+        bottom: var(--ui-space-4);
+        width: calc(100vw - 2 * var(--ui-space-4));
+    }
+
+    .action-row .ui-button {
+        min-height: var(--ui-control-height);
+        height: auto;
+        padding-block: var(--ui-space-2);
+    }
+
+    .card-actions .ui-button {
+        flex: 1 1 calc(50% - var(--ui-space-2));
+        height: auto;
+        min-height: var(--ui-control-height-sm);
+        padding-block: var(--ui-space-2);
+        white-space: normal;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-toast,
+    .ui-loading::before {
+        animation: none;
+        transition: none;
+    }
+}
