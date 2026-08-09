@@ -56,8 +56,12 @@ func TestRecoveryMarksRunningOperationFailedAndRemovesOnlyItsStage(t *testing.T)
 	}
 	id := "0123456789abcdef0123456789abcdef"
 	stage := filepath.Join(models, "bundles", ".bundle-b-"+id+".staging")
+	candidate := filepath.Join(models, "bundles", "bundle-b-candidate-"+id[:12])
 	published := filepath.Join(models, "bundles", "bundle-b-published")
 	if err := os.Mkdir(stage, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(candidate, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(published, 0o750); err != nil {
@@ -81,8 +85,43 @@ func TestRecoveryMarksRunningOperationFailedAndRemovesOnlyItsStage(t *testing.T)
 	if _, err := os.Stat(stage); !os.IsNotExist(err) {
 		t.Fatalf("stage remains: %v", err)
 	}
+	if _, err := os.Stat(candidate); !os.IsNotExist(err) {
+		t.Fatalf("unpersisted candidate remains: %v", err)
+	}
 	if _, err := os.Stat(published); err != nil {
 		t.Fatalf("published bundle removed: %v", err)
+	}
+}
+
+func TestRemoveOperationArtifactsRemovesUnpersistedCandidateForTerminalOperations(t *testing.T) {
+	models := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(models, "bundles"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	id := "0123456789abcdef0123456789abcdef"
+	for _, status := range []string{"failed", "cancelled"} {
+		t.Run(status, func(t *testing.T) {
+			candidate := filepath.Join(models, "bundles", "bundle-b-"+status+"-"+id[:12])
+			if err := os.Mkdir(candidate, 0o750); err != nil {
+				t.Fatal(err)
+			}
+			m := &Manager{models: models}
+			m.removeOperationArtifacts(Operation{ID: id, Status: status})
+			if _, err := os.Stat(candidate); !os.IsNotExist(err) {
+				t.Fatalf("unpersisted candidate remains: %v", err)
+			}
+		})
+	}
+}
+
+func TestCancelRejectsAfterPublicationCommit(t *testing.T) {
+	cancelled := false
+	m := &Manager{cancel: func() { cancelled = true }, publicationCommitted: true, op: Operation{ID: "0123456789abcdef0123456789abcdef"}}
+	if err := m.Cancel(m.op.ID); err == nil {
+		t.Fatal("cancellation succeeded after publication commit")
+	}
+	if cancelled {
+		t.Fatal("committed operation context was cancelled")
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,7 +29,7 @@ type ServerConfig struct {
 	AllowedHosts []string `yaml:"-"`
 }
 
-func (s ServerConfig) Address() string { return fmt.Sprintf("%s:%d", s.Host, s.Port) }
+func (s ServerConfig) Address() string { return net.JoinHostPort(s.Host, strconv.Itoa(s.Port)) }
 
 type RuntimeConfig struct {
 	Device           string `yaml:"device"`

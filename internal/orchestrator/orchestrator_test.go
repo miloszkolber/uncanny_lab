@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -107,5 +108,78 @@ func TestQueuedCancellationWritesRecoverableMetadata(t *testing.T) {
 	}
 	if persisted.Status != jobs.Cancelled || persisted.ErrorCode != "CANCELLED" {
 		t.Fatalf("cancelled job = %+v", persisted)
+	}
+}
+
+func TestCompleteHonorsCancellationRequestedWhileSaving(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{Paths: config.PathsConfig{Data: root, Models: filepath.Join(root, "models"), Inputs: filepath.Join(root, "inputs"), Workspace: filepath.Join(root, "workspace")}}
+	if err := cfg.EnsureDirectories(); err != nil {
+		t.Fatal(err)
+	}
+	repo, err := database.Open(cfg.DatabasePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	job := jobs.Job{ID: "123-0123456789ab", Engine: "deep-image-prior", Status: jobs.Saving, Parameters: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(), EngineVersion: "1.0.0", RuntimeDevice: "cpu", RuntimePrecision: "fp32"}
+	if err := repo.Create(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	runner := New(repo, events.NewBroker(), cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	runner.mu.Lock()
+	runner.cancelRequested[job.ID] = true
+	runner.mu.Unlock()
+	if err := runner.complete(&job); err != nil {
+		t.Fatal(err)
+	}
+	persisted, err := repo.Get(context.Background(), job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Status != jobs.Cancelled || persisted.ErrorCode != "CANCELLED" {
+		t.Fatalf("saving job was not cancelled: %+v", persisted)
+	}
+}
+
+func TestCancellationDoesNotOverwriteCompletedSavingJob(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{Paths: config.PathsConfig{Data: root, Models: filepath.Join(root, "models"), Inputs: filepath.Join(root, "inputs"), Workspace: filepath.Join(root, "workspace")}}
+	if err := cfg.EnsureDirectories(); err != nil {
+		t.Fatal(err)
+	}
+	repo, err := database.Open(cfg.DatabasePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	job := jobs.Job{ID: "123-0123456789ab", Engine: "deep-image-prior", Status: jobs.Saving, Parameters: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(), EngineVersion: "1.0.0", RuntimeDevice: "cpu", RuntimePrecision: "fp32"}
+	if err := repo.Create(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	runner := New(repo, events.NewBroker(), cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	if err := runner.complete(&job); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Cancel(context.Background(), job.ID); err == nil {
+		t.Fatal("cancellation succeeded after completion")
+	}
+	persisted, err := repo.Get(context.Background(), job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Status != jobs.Completed {
+		t.Fatalf("completion was overwritten: %+v", persisted)
+	}
+}
+
+func TestUnrequestedSignalExitIsWorkerFailure(t *testing.T) {
+	command := exec.Command("sh", "-c", "kill -TERM $$")
+	err := command.Run()
+	if err == nil {
+		t.Fatal("worker did not exit from SIGTERM")
+	}
+	if !shouldFailWorkerExit(err, false) {
+		t.Fatalf("unrequested signal exit was not treated as a worker failure: %v", err)
 	}
 }

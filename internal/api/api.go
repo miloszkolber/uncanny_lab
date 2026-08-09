@@ -173,6 +173,11 @@ func isJSONContentType(r *http.Request) bool {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	return err == nil && media == "application/json"
 }
+
+func isMultipartContentType(r *http.Request) bool {
+	media, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && media == "multipart/form-data" && params["boundary"] != ""
+}
 func (a *API) installError(w http.ResponseWriter, e error) {
 	switch {
 	case errors.Is(e, modelinstall.ErrDisabled):
@@ -252,7 +257,7 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
 		return
 	}
-	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data;") {
+	if !isMultipartContentType(r) {
 		writeError(w, http.StatusUnsupportedMediaType, "INVALID_CONTENT_TYPE", "Content-Type must be multipart/form-data")
 		return
 	}
@@ -367,7 +372,7 @@ func (a *API) createJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "CROSS_ORIGIN_REQUEST", "Cross-origin requests are not allowed")
 		return
 	}
-	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+	if !isJSONContentType(r) {
 		writeError(w, http.StatusUnsupportedMediaType, "INVALID_CONTENT_TYPE", "Content-Type must be application/json")
 		return
 	}
@@ -722,6 +727,9 @@ func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 	if err != nil {
 		return jobs.Job{}, err
 	}
+	if err := a.validateRequiredInputs(manifest, parameters); err != nil {
+		return jobs.Job{}, err
+	}
 	request.Parameters = parameters
 	now := time.Now().UTC()
 	id, err := jobs.NewID(now)
@@ -733,6 +741,45 @@ func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
 		seed = *request.Seed
 	}
 	return jobs.Job{ID: id, Engine: request.Engine, Status: jobs.Queued, Parameters: request.Parameters, Seed: seed, CreatedAt: now, EngineVersion: manifest.Version, RuntimeDevice: a.cfg.Runtime.Device, RuntimePrecision: a.cfg.Runtime.DefaultPrecision}, nil
+}
+
+func (a *API) validateRequiredInputs(manifest engines.Manifest, parameters json.RawMessage) error {
+	if len(manifest.RequiredInputs) == 0 {
+		return nil
+	}
+	values := make(map[string]any)
+	if err := json.Unmarshal(parameters, &values); err != nil {
+		return fmt.Errorf("decode parameters: %w", err)
+	}
+	for _, required := range manifest.RequiredInputs {
+		value, ok := values[required].(string)
+		if !ok || strings.TrimSpace(value) == "" || !a.validRequiredImageToken(value) {
+			return fmt.Errorf("required image input %q is missing", required)
+		}
+	}
+	return nil
+}
+
+func (a *API) validRequiredImageToken(token string) bool {
+	if strings.HasPrefix(token, "inputs/") {
+		relative := strings.TrimPrefix(token, "inputs/")
+		if filepath.Ext(relative) != ".png" || !uploadIDPattern.MatchString(strings.TrimSuffix(relative, ".png")) {
+			return false
+		}
+		_, err := containedFile(a.cfg.Paths.Inputs, relative)
+		return err == nil
+	}
+	if !strings.HasPrefix(token, "workspace/jobs/") {
+		return false
+	}
+	relative := strings.TrimPrefix(token, "workspace/jobs/")
+	parts := strings.Split(filepath.ToSlash(relative), "/")
+	validArtifact := len(parts) == 2 && parts[1] == "final.png" || len(parts) == 3 && parts[1] == "previews" && previewPathPattern.MatchString(parts[1]+"/"+parts[2])
+	if len(parts) < 2 || !jobIDPattern.MatchString(parts[0]) || !validArtifact {
+		return false
+	}
+	_, err := containedFile(a.cfg.JobRoot(), filepath.FromSlash(relative))
+	return err == nil
 }
 
 func (a *API) cancelJob(w http.ResponseWriter, r *http.Request) {

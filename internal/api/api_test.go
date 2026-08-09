@@ -25,11 +25,48 @@ import (
 func TestUploadRejectsWrongContentType(t *testing.T) {
 	a := &API{cfg: config.Config{Paths: config.PathsConfig{Inputs: t.TempDir()}}}
 	req := httptest.NewRequest(http.MethodPost, "/api/uploads", bytes.NewBufferString("not multipart"))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "multipart/form-data-evil; boundary=test")
 	response := httptest.NewRecorder()
 	a.upload(response, req)
 	if response.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("status = %d", response.Code)
+	}
+}
+
+func TestCreateJobRejectsContentTypeSuffix(t *testing.T) {
+	a := &API{}
+	req := httptest.NewRequest(http.MethodPost, "/api/jobs", bytes.NewBufferString(`{"engine":"test-pattern","parameters":{}}`))
+	req.Header.Set("Content-Type", "application/json-patch+json")
+	response := httptest.NewRecorder()
+	a.createJob(response, req)
+	if response.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d", response.Code)
+	}
+}
+
+func TestValidateRequiredInputs(t *testing.T) {
+	inputs := t.TempDir()
+	if err := os.WriteFile(filepath.Join(inputs, "0123456789abcdef0123456789abcdef.png"), []byte("source"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	preview := filepath.Join(workspace, "jobs", "123-0123456789ab", "previews", "000001.png")
+	if err := os.MkdirAll(filepath.Dir(preview), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(preview, []byte("style"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	a := &API{cfg: config.Config{Paths: config.PathsConfig{Inputs: inputs, Workspace: workspace}}}
+	manifest := engines.Manifest{RequiredInputs: []string{"source_image", "style_image"}}
+	if err := a.validateRequiredInputs(manifest, json.RawMessage(`{"source_image":"inputs/0123456789abcdef0123456789abcdef.png","style_image":"workspace/jobs/123-0123456789ab/previews/000001.png"}`)); err != nil {
+		t.Fatalf("valid inputs rejected: %v", err)
+	}
+	if err := a.validateRequiredInputs(manifest, json.RawMessage(`{"source_image":"inputs/0123456789abcdef0123456789abcdef.png","style_image":"inputs/missing.png"}`)); err == nil {
+		t.Fatal("missing style image accepted")
+	}
+	if err := a.validateRequiredInputs(manifest, json.RawMessage(`{"source_image":"/tmp/source.png","style_image":"workspace/jobs/123-0123456789ab/previews/000001.png"}`)); err == nil {
+		t.Fatal("noncanonical source image accepted")
 	}
 }
 

@@ -37,12 +37,15 @@ type Orchestrator struct {
 
 	mu              sync.Mutex
 	active          map[string]*exec.Cmd
+	processDone     map[string]chan struct{}
 	cancelRequested map[string]bool
+	completionSaved map[string]bool
+	completing      map[string]chan struct{}
 	closed          bool
 }
 
 func New(repo *database.Repository, broker *events.Broker, cfg config.Config, logger *slog.Logger) *Orchestrator {
-	return &Orchestrator{repo: repo, broker: broker, cfg: cfg, logger: logger, queue: make(chan string, 4096), stop: make(chan struct{}), done: make(chan struct{}), active: make(map[string]*exec.Cmd), cancelRequested: make(map[string]bool)}
+	return &Orchestrator{repo: repo, broker: broker, cfg: cfg, logger: logger, queue: make(chan string, 4096), stop: make(chan struct{}), done: make(chan struct{}), active: make(map[string]*exec.Cmd), processDone: make(map[string]chan struct{}), cancelRequested: make(map[string]bool), completionSaved: make(map[string]bool), completing: make(map[string]chan struct{})}
 }
 
 func (o *Orchestrator) Start() { go o.loop() }
@@ -55,16 +58,24 @@ func (o *Orchestrator) Stop() {
 	}
 	o.closed = true
 	close(o.stop)
-	commands := make([]*exec.Cmd, 0, len(o.active))
-	for _, command := range o.active {
-		commands = append(commands, command)
+	type activeProcess struct {
+		command *exec.Cmd
+		done    <-chan struct{}
+	}
+	commands := make([]activeProcess, 0, len(o.active))
+	for id, command := range o.active {
+		commands = append(commands, activeProcess{command: command, done: o.processDone[id]})
 	}
 	o.mu.Unlock()
-	for _, command := range commands {
-		_ = command.Process.Signal(syscall.SIGTERM)
-		forceKillAfter(command, 3*time.Second)
+	for _, process := range commands {
+		signalProcessGroup(process.command, syscall.SIGTERM)
+		forceKillAfter(process.command, 3*time.Second, process.done)
 	}
-	<-o.done
+	select {
+	case <-o.done:
+	case <-time.After(4 * time.Second):
+		o.logger.Warn("orchestrator shutdown timed out waiting for workers")
+	}
 }
 
 func (o *Orchestrator) QueueLength() int { return len(o.queue) }
@@ -113,16 +124,41 @@ func (o *Orchestrator) Cancel(ctx context.Context, id string) error {
 	if job.Status == jobs.Completed || job.Status == jobs.Failed || job.Status == jobs.Cancelled {
 		return errors.New("job has already finished")
 	}
-
 	o.mu.Lock()
+	if o.completionSaved[id] {
+		o.mu.Unlock()
+		return errors.New("job has already finished")
+	}
+	if done := o.completing[id]; done != nil {
+		o.mu.Unlock()
+		select {
+		case <-done:
+			return o.Cancel(ctx, id)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	// The first read may have observed Saving immediately before complete
+	// committed Completed and cleared its in-memory marker. Recheck while
+	// excluding complete from starting before claiming cancellation.
+	job, err = o.repo.Get(ctx, id)
+	if err != nil {
+		o.mu.Unlock()
+		return err
+	}
+	if job.Status == jobs.Completed || job.Status == jobs.Failed || job.Status == jobs.Cancelled {
+		o.mu.Unlock()
+		return errors.New("job has already finished")
+	}
 	o.cancelRequested[id] = true
 	command := o.active[id]
+	done := o.processDone[id]
 	o.mu.Unlock()
 	if command != nil && command.Process != nil {
-		if err := command.Process.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		if err := signalProcessGroup(command, syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			return fmt.Errorf("signal worker: %w", err)
 		}
-		forceKillAfter(command, 3*time.Second)
+		forceKillAfter(command, 3*time.Second, done)
 		return nil
 	}
 
@@ -227,6 +263,7 @@ func (o *Orchestrator) execute(id string) {
 	command := exec.Command(o.cfg.Runtime.PythonExecutable, "-m", "uncanny_lab.runner", "--engine", job.Engine, "--job", jobPath)
 	command.Dir = jobDir
 	command.Env = append(os.Environ(), "PYTHONPATH="+o.cfg.Runtime.PythonPath, "UNCANNY_DATA_ROOT="+o.cfg.Paths.Data, "UNCANNY_MODELS_ROOT="+o.cfg.Paths.Models)
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		o.fail(&job, "ENGINE_CRASHED", err.Error())
@@ -244,12 +281,14 @@ func (o *Orchestrator) execute(id string) {
 		o.fail(&job, "ENGINE_CRASHED", err.Error())
 		return
 	}
+	processDone := make(chan struct{})
 	o.active[id] = command
+	o.processDone[id] = processDone
 	cancelAfterStart := o.cancelRequested[id]
 	o.mu.Unlock()
 	if cancelAfterStart {
-		_ = command.Process.Signal(syscall.SIGTERM)
-		forceKillAfter(command, 3*time.Second)
+		_ = signalProcessGroup(command, syscall.SIGTERM)
+		forceKillAfter(command, 3*time.Second, processDone)
 	}
 
 	scanner := bufio.NewScanner(io.TeeReader(stdout, stdoutLog))
@@ -271,6 +310,10 @@ func (o *Orchestrator) execute(id string) {
 	waitErr := command.Wait()
 	o.mu.Lock()
 	delete(o.active, id)
+	if done := o.processDone[id]; done != nil {
+		close(done)
+		delete(o.processDone, id)
+	}
 	o.mu.Unlock()
 
 	if job.Status == jobs.Failed || job.Status == jobs.Cancelled {
@@ -283,18 +326,13 @@ func (o *Orchestrator) execute(id string) {
 	if waitErr != nil {
 		code := "ENGINE_CRASHED"
 		message := "Worker exited before completing"
-		if exit, ok := waitErr.(*exec.ExitError); ok && (exit.ExitCode() == 143 || exit.ExitCode() == -1) {
-			o.markCancelled(&job, "Generation cancelled")
-			return
-		}
-		if !workerFailed {
+		if shouldFailWorkerExit(waitErr, workerFailed) {
 			o.fail(&job, code, message)
 		}
 		return
 	}
 	if job.Status == jobs.Saving {
-		job.Status = jobs.Completed
-		if err := o.finish(&job, "", ""); err != nil {
+		if err := o.complete(&job); err != nil {
 			o.logger.Error("persist completed job", "job_id", job.ID, "error", err)
 		}
 		return
@@ -614,7 +652,33 @@ func (o *Orchestrator) isCancelled(id string) bool {
 func (o *Orchestrator) clearCancellation(id string) {
 	o.mu.Lock()
 	delete(o.cancelRequested, id)
+	delete(o.completionSaved, id)
 	o.mu.Unlock()
+}
+
+// complete commits a completed state while excluding a concurrent cancellation.
+// Cancel waits for an in-progress completion and checks completionSaved before
+// acting on a stale Saving state.
+func (o *Orchestrator) complete(job *jobs.Job) error {
+	o.mu.Lock()
+	if o.cancelRequested[job.ID] {
+		o.mu.Unlock()
+		o.markCancelled(job, "Generation cancelled")
+		return nil
+	}
+	done := make(chan struct{})
+	o.completing[job.ID] = done
+	o.mu.Unlock()
+	job.Status = jobs.Completed
+	err := o.finish(job, "", "")
+	o.mu.Lock()
+	delete(o.completing, job.ID)
+	if err == nil {
+		o.completionSaved[job.ID] = true
+	}
+	close(done)
+	o.mu.Unlock()
+	return err
 }
 
 func (o *Orchestrator) markCancelled(job *jobs.Job, message string) {
@@ -637,15 +701,28 @@ func (o *Orchestrator) saveTerminal(job jobs.Job) error {
 	return fmt.Errorf("save terminal job state: %w", err)
 }
 
-func forceKillAfter(command *exec.Cmd, delay time.Duration) {
+func forceKillAfter(command *exec.Cmd, delay time.Duration, done <-chan struct{}) {
 	go func() {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
-		<-timer.C
-		if command.Process != nil {
-			_ = command.Process.Kill()
+		select {
+		case <-done:
+			return
+		case <-timer.C:
 		}
+		_ = signalProcessGroup(command, syscall.SIGKILL)
 	}()
+}
+
+func signalProcessGroup(command *exec.Cmd, signal syscall.Signal) error {
+	if command == nil || command.Process == nil {
+		return os.ErrProcessDone
+	}
+	return syscall.Kill(-command.Process.Pid, signal)
+}
+
+func shouldFailWorkerExit(waitErr error, workerFailed bool) bool {
+	return waitErr != nil && !workerFailed
 }
 
 func atomicJSON(path string, value any) error {

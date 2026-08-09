@@ -6,8 +6,12 @@ on:
             version:
                 description: Release version to publish
                 required: true
-                default: "0.1.2"
+                default: "0.1.3"
                 type: string
+
+concurrency:
+    group: uncanny-lab-publish
+    cancel-in-progress: false
 
 permissions:
     contents: read
@@ -38,7 +42,7 @@ jobs:
               env:
                   VERSION: ${{ inputs.version }}
               run: |
-                  [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]
+                  [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
             - name: Go tests with race detector
               run: go test -race ./...
             - name: Go vet
@@ -72,7 +76,6 @@ jobs:
                   docker run --rm
                   --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly
                   --workdir /workspace
-                  --env PYTHONPATH=/workspace/python
                   --entrypoint python3
                   uncanny-lab:tested -m unittest discover -s python/tests -v
             - name: Verify the tested final image
@@ -82,13 +85,49 @@ jobs:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
-            - name: Tag and push the tested image
+            - name: Publish tested image safely
               env:
                   IMAGE: ghcr.io/${{ github.repository_owner }}/uncanny-lab
                   VERSION: ${{ inputs.version }}
                   REVISION: ${{ github.sha }}
               run: |
-                  for tag in latest "$VERSION" "$REVISION"; do
+                  tested_digest="$(docker image inspect uncanny-lab:tested --format '{{.Id}}')"
+                  version_exists=false
+                  revision_exists=false
+                  check_tag() {
+                      local tag="$1"
+                      set +e
+                      local inspect_output
+                      inspect_output="$(docker manifest inspect "$IMAGE:$tag" 2>&1)"
+                      local inspect_status=$?
+                      set -e
+                      if [[ "$inspect_status" -eq 0 ]]; then
+                          local existing_digest
+                          existing_digest="$(printf '%s' "$inspect_output" | jq -r '.config.digest // .SchemaV2Manifest.config.digest // empty')"
+                          if [[ -z "$existing_digest" || "$existing_digest" != "$tested_digest" ]]; then
+                              echo "release tag already points to a different image: $tag" >&2
+                              exit 1
+                          fi
+                          if [[ "$tag" == "$VERSION" ]]; then version_exists=true; fi
+                          if [[ "$tag" == "$REVISION" ]]; then revision_exists=true; fi
+                          return
+                      fi
+                      if ! [[ "$inspect_output" =~ [Mm]anifest[[:space:]]+unknown|[Nn]o[[:space:]]+such[[:space:]]+manifest ]]; then
+                          printf '%s\n' "$inspect_output" >&2
+                          exit 1
+                      fi
+                  }
+                  check_tag "$VERSION"
+                  check_tag "$REVISION"
+                  if [[ "$version_exists" != true ]]; then
+                      docker tag uncanny-lab:tested "$IMAGE:$VERSION"
+                      docker push "$IMAGE:$VERSION"
+                  fi
+                  if [[ "$revision_exists" != true ]]; then
+                      docker tag uncanny-lab:tested "$IMAGE:$REVISION"
+                      docker push "$IMAGE:$REVISION"
+                  fi
+                  for tag in latest; do
                       docker tag uncanny-lab:tested "$IMAGE:$tag"
                       docker push "$IMAGE:$tag"
                   done

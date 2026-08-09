@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestServerAddressFormatsIPv4AndIPv6(t *testing.T) {
+	if got := (ServerConfig{Host: "127.0.0.1", Port: 8080}).Address(); got != "127.0.0.1:8080" {
+		t.Fatalf("IPv4 address = %q", got)
+	}
+	if got := (ServerConfig{Host: "::1", Port: 8080}).Address(); got != "[::1]:8080" {
+		t.Fatalf("IPv6 address = %q", got)
+	}
+}
+
 func TestAllowedHostsMergesLoopbackAndConfiguredHosts(t *testing.T) {
 	hosts, err := AllowedHosts(9090, " Lab.Example.Test:9090 , api.example.test:9090 ")
 	if err != nil {

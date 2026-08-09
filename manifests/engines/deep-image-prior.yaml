@@ -9,6 +9,7 @@ capabilities:
   seed: true
   iterations: true
   intermediate_frames: true
+required_inputs: [source_image]
 runtime:
   device: [xpu, cpu]
   precision: [fp32]

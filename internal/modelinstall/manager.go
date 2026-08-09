@@ -65,6 +65,7 @@ type Manager struct {
 	lock                        *os.File
 	client                      *http.Client
 	unavailable                 bool
+	publicationCommitted        bool
 }
 
 type installError struct {
@@ -237,6 +238,9 @@ func (m *Manager) Cancel(id string) error {
 	if m.cancel == nil {
 		return errors.New("no active operation")
 	}
+	if m.publicationCommitted {
+		return errors.New("installation publication is already committed")
+	}
 	if id != m.op.ID {
 		return errors.New("operation does not match")
 	}
@@ -283,6 +287,7 @@ func (m *Manager) run(ctx context.Context) {
 		close(m.done)
 		m.done = nil
 	}
+	m.publicationCommitted = false
 }
 func (m *Manager) install(ctx context.Context) error {
 	cache := filepath.Join(m.root(), "sources")
@@ -324,10 +329,20 @@ func (m *Manager) install(ctx context.Context) error {
 		return failure("STORAGE", "Candidate could not be checked", err)
 	}
 	defer os.Remove(check)
-	if err := verifyBundleWithRevision(check, &op, m.revision, true, true); err != nil {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := verifyBundleWithRevisionContext(ctx, check, &op, m.revision, true, true); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 		return failure("VERIFICATION", "Installed bundle verification failed", err)
 	}
 	m.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		m.mu.Unlock()
+		return err
+	}
 	m.op.CandidateTarget = filepath.Join("bundles", filepath.Base(candidate))
 	if old, err := os.Readlink(filepath.Join(m.models, "bundle-b")); err == nil {
 		m.op.PriorTarget = old
@@ -336,10 +351,17 @@ func (m *Manager) install(ctx context.Context) error {
 		m.mu.Unlock()
 		return failure("STORAGE", "Installer operation state could not be persisted", err)
 	}
-	m.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	m.publicationCommitted = true
 	if err := swapBundleWithPrior(m.models, m.op.CandidateTarget, m.op.PriorTarget); err != nil {
+		m.publicationCommitted = false
+		m.mu.Unlock()
 		return failure("STORAGE", "Bundle publication failed", err)
 	}
+	m.mu.Unlock()
 	m.mu.Lock()
 	m.op.ProvenancePath = filepath.Join(m.models, "bundle-b", "provenance/bundle-b-conversion-report.json")
 	_ = m.persist()
@@ -381,6 +403,10 @@ func (m *Manager) removeOperationArtifacts(op Operation) {
 		return
 	}
 	_ = os.RemoveAll(filepath.Join(m.models, "bundles", ".bundle-b-"+op.ID+".staging"))
+	// The converter publishes the version directory before this process can
+	// persist CandidateTarget. Remove the operation-scoped version by ID as
+	// well, so cancellation or a crash in that window cannot retain it.
+	m.removeCandidate(op.ID)
 	if op.CandidateTarget == "" || filepath.IsAbs(op.CandidateTarget) || filepath.Clean(op.CandidateTarget) != op.CandidateTarget || !strings.HasPrefix(op.CandidateTarget, "bundles/") {
 		return
 	}
@@ -543,6 +569,12 @@ func verifyBundle(p string, expected *Operation, strict bool) error {
 	return verifyBundleWithRevision(p, expected, "", strict, false)
 }
 func verifyBundleWithRevision(p string, expected *Operation, revision string, strict, deep bool) error {
+	return verifyBundleWithRevisionContext(context.Background(), p, expected, revision, strict, deep)
+}
+func verifyBundleWithRevisionContext(ctx context.Context, p string, expected *Operation, revision string, strict, deep bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	i, e := os.Lstat(p)
 	if e != nil || i.Mode()&os.ModeSymlink == 0 {
 		return errors.New("bundle was not atomically published")
@@ -569,7 +601,10 @@ func verifyBundleWithRevision(p string, expected *Operation, revision string, st
 		return err
 	}
 	for _, o := range Outputs {
-		if err := verifyReportedArtifact(p, o.Path, x, deep); err != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := verifyReportedArtifactContext(ctx, p, o.Path, x, deep); err != nil {
 			return err
 		}
 	}
@@ -643,6 +678,9 @@ func (x provenance) validateInputs() error {
 }
 
 func verifyReportedArtifact(root, path string, x provenance, deep bool) error {
+	return verifyReportedArtifactContext(context.Background(), root, path, x, deep)
+}
+func verifyReportedArtifactContext(ctx context.Context, root, path string, x provenance, deep bool) error {
 	var a artifact
 	switch path {
 	case "bundle-b/classifiers/vgg19.pt":
@@ -671,21 +709,40 @@ func verifyReportedArtifact(root, path string, x provenance, deep bool) error {
 	if !deep {
 		return nil
 	}
-	got, e := fileHash(f)
+	got, e := fileHashContext(ctx, f)
 	if e != nil || !strings.EqualFold(got, a.SHA256) {
 		return fmt.Errorf("artifact hash mismatch %s", path)
 	}
 	return nil
 }
 func fileHash(p string) (string, error) {
+	return fileHashContext(context.Background(), p)
+}
+func fileHashContext(ctx context.Context, p string) (string, error) {
 	f, e := os.Open(p)
 	if e != nil {
 		return "", e
 	}
 	defer f.Close()
 	h := sha256.New()
-	_, e = io.Copy(h, f)
-	return hex.EncodeToString(h.Sum(nil)), e
+	buffer := make([]byte, 1<<20)
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		n, readErr := f.Read(buffer)
+		if n > 0 {
+			if _, err := h.Write(buffer[:n]); err != nil {
+				return "", err
+			}
+		}
+		if errors.Is(readErr, io.EOF) {
+			return hex.EncodeToString(h.Sum(nil)), nil
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
 }
 func free(path string) int64 {
 	var s syscall.Statfs_t

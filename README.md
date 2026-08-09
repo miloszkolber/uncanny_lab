@@ -62,7 +62,7 @@ docker run --rm --user "$(id -u):$(id -g)" --entrypoint python3 \
 
 ## Quick start
 
-The current image release is `0.1.2`. Image builds and publication are manual GitHub Actions dispatches. Patch releases use the `0.1.x` series until a feature release is justified. Existing images can be retagged without rebuilding through the manual `Retag existing image` workflow.
+The current image release is `0.1.2`. Image builds and publication are manual GitHub Actions dispatches. Patch releases use the `0.1.x` series until a feature release is justified. Existing images can be retagged without rebuilding only when the source image already carries the target version metadata and the target tag does not exist.
 
 For Intel XPU, create a persistent data directory, provide access to the render device, and start Compose:
 
@@ -117,7 +117,6 @@ go test -race ./...
 go vet ./...
 python3 -m compileall -q python tools
 PYTHONPATH=python python3 -m unittest discover -s python/tests -v
-node --check web/static/app.js
 bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
 docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
@@ -126,4 +125,4 @@ tools/verify_image.sh uncanny-lab:local
 
 ## Data and security
 
-`/data` holds the SQLite index, checkpoints, uploads, job specifications, logs, previews, final images, and exports. Back it up as one unit. The container does not download models, but Docker networking is not an egress boundary. Keep checkpoints and generated images private as appropriate, review model terms, and expose the default loopback-only service only through a deliberately configured proxy or tunnel.
+`/data` holds the SQLite index, checkpoints, uploads, job specifications, logs, previews, final images, and exports. Back it up as one unit. Checkpoint downloads are disabled by default and can be enabled only for the fixed catalog through the explicit installer setting. Docker networking is not an egress boundary. Keep checkpoints and generated images private as appropriate, review model terms, and expose the default loopback-only service only through a deliberately configured proxy or tunnel.

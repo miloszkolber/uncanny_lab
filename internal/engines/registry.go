@@ -12,16 +12,17 @@ import (
 )
 
 type Manifest struct {
-	ID           string                 `yaml:"id" json:"id"`
-	Name         string                 `yaml:"name" json:"name"`
-	Type         string                 `yaml:"type" json:"type"`
-	Version      string                 `yaml:"version" json:"version"`
-	Description  string                 `yaml:"description" json:"description"`
-	Capabilities map[string]bool        `yaml:"capabilities" json:"capabilities"`
-	Runtime      map[string]any         `yaml:"runtime" json:"runtime"`
-	Parameters   map[string]interface{} `yaml:"parameters" json:"parameters"`
-	Enabled      *bool                  `yaml:"enabled" json:"enabled"`
-	Models       []string               `yaml:"models" json:"models"`
+	ID             string                 `yaml:"id" json:"id"`
+	Name           string                 `yaml:"name" json:"name"`
+	Type           string                 `yaml:"type" json:"type"`
+	Version        string                 `yaml:"version" json:"version"`
+	Description    string                 `yaml:"description" json:"description"`
+	Capabilities   map[string]bool        `yaml:"capabilities" json:"capabilities"`
+	RequiredInputs []string               `yaml:"required_inputs,omitempty" json:"required_inputs,omitempty"`
+	Runtime        map[string]any         `yaml:"runtime" json:"runtime"`
+	Parameters     map[string]interface{} `yaml:"parameters" json:"parameters"`
+	Enabled        *bool                  `yaml:"enabled" json:"enabled"`
+	Models         []string               `yaml:"models" json:"models"`
 }
 
 type Registry struct{ manifests []Manifest }
