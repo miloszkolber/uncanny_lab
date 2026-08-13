@@ -1430,6 +1430,7 @@ button, input, select, textarea { font: inherit; }
 .card-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-2); }
 .diagnostic-grid, .model-family { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--ui-space-16)), 1fr)); gap: var(--ui-space-4); padding: var(--ui-space-6); }
 .diagnostic-card, .model-card { display: grid; gap: var(--ui-space-2); padding: var(--ui-space-4); border: var(--ui-border-width) solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface-raised); }
+.compatibility-card { grid-column: 1 / -1; }
 .diagnostic-card dt, .detail-meta dt { color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-font-size-xs); }
 .diagnostic-card dd, .detail-meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .family-title { margin: var(--ui-space-6) var(--ui-space-6) 0; }

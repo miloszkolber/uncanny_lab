@@ -108,6 +108,7 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`field-wide`,
 		`engine-description`,
 		`aria-describedby`,
+		`compatibility-card`,
 		`state.jobStatusKey`,
 		`confirmError`,
 	} {

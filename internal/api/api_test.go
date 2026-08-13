@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +20,9 @@ import (
 	"github.com/miloszkolber/uncanny-lab/internal/config"
 	"github.com/miloszkolber/uncanny-lab/internal/database"
 	"github.com/miloszkolber/uncanny-lab/internal/engines"
+	"github.com/miloszkolber/uncanny-lab/internal/events"
 	"github.com/miloszkolber/uncanny-lab/internal/jobs"
+	"github.com/miloszkolber/uncanny-lab/internal/orchestrator"
 )
 
 func TestUploadRejectsWrongContentType(t *testing.T) {
@@ -41,6 +44,101 @@ func TestCreateJobRejectsContentTypeSuffix(t *testing.T) {
 	a.createJob(response, req)
 	if response.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("status = %d", response.Code)
+	}
+}
+
+func TestNewJobReportsDalleMiniCompatibility(t *testing.T) {
+	registry, err := engines.Load(filepath.Join("..", "..", "manifests", "engines"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &API{registry: registry}
+	_, err = a.newJob(jobs.CreateRequest{Engine: "dalle-mini", Parameters: json.RawMessage(`{"prompt":"test"}`)})
+	if err == nil || !strings.Contains(err.Error(), "DALL-E Mini requires") {
+		t.Fatalf("newJob error = %v", err)
+	}
+}
+
+func TestNewJobRejectsDalleMiniBeforeParameterValidation(t *testing.T) {
+	registry, err := engines.Load(filepath.Join("..", "..", "manifests", "engines"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &API{registry: registry}
+	_, err = a.newJob(jobs.CreateRequest{Engine: "dalle-mini", Parameters: json.RawMessage(`[]`)})
+	if err == nil || !strings.Contains(err.Error(), "DALL-E Mini requires") {
+		t.Fatalf("newJob error = %v", err)
+	}
+}
+
+func TestCreateJobUsesDalleMiniCompatibilityCode(t *testing.T) {
+	registry, err := engines.Load(filepath.Join("..", "..", "manifests", "engines"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &API{registry: registry}
+	request := httptest.NewRequest(http.MethodPost, "/api/jobs", bytes.NewBufferString(`{"engine":"dalle-mini","parameters":{"prompt":"test"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	a.createJob(response, request)
+	var body struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if response.Code != http.StatusBadRequest || json.NewDecoder(response.Body).Decode(&body) != nil || body.Error.Code != "DALL_E_MINI_UNSUPPORTED" || !strings.Contains(body.Error.Message, "JAX/Flax") {
+		t.Fatalf("response = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestDuplicateJobRejectsDalleMiniCompatibility(t *testing.T) {
+	root := t.TempDir()
+	repo, err := database.Open(filepath.Join(root, "jobs.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	registry, err := engines.Load(filepath.Join("..", "..", "manifests", "engines"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	original := jobs.Job{ID: "123-0123456789ab", Engine: "dalle-mini", Status: jobs.Completed, Parameters: json.RawMessage(`{"prompt":"test"}`), CreatedAt: now}
+	if err := repo.Create(context.Background(), original); err != nil {
+		t.Fatal(err)
+	}
+	a := &API{repo: repo, registry: registry}
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/jobs/"+original.ID+"/duplicate", nil)
+	request.SetPathValue("id", original.ID)
+	a.duplicateJob(response, request)
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if response.Code != http.StatusBadRequest || json.NewDecoder(response.Body).Decode(&body) != nil || body.Error.Code != "DALL_E_MINI_UNSUPPORTED" {
+		t.Fatalf("response = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestSystemIncludesCompatibilityCatalog(t *testing.T) {
+	root := t.TempDir()
+	repo, err := database.Open(filepath.Join(root, "jobs.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	a := &API{repo: repo, cfg: config.Config{Paths: config.PathsConfig{Data: root, Workspace: root}, Runtime: config.RuntimeConfig{Device: "cpu", PythonExecutable: "false", PythonPath: ""}}}
+	a.orchestrator = orchestrator.New(repo, events.NewBroker(), a.cfg, slog.Default())
+	response := httptest.NewRecorder()
+	a.system(response, httptest.NewRequest(http.MethodGet, "/api/system", nil))
+	var body struct {
+		Compatibility []engines.Compatibility `json:"compatibility"`
+	}
+	if response.Code != http.StatusOK || json.NewDecoder(response.Body).Decode(&body) != nil || len(body.Compatibility) != 1 || body.Compatibility[0].ID != "dalle-mini" || body.Compatibility[0].Code != "DALL_E_MINI_UNSUPPORTED" || body.Compatibility[0].Status != "unsupported" {
+		t.Fatalf("system response = %d %s", response.Code, response.Body.String())
 	}
 }
 

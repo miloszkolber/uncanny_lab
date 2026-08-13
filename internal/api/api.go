@@ -53,6 +53,13 @@ type API struct {
 	systemCached time.Time
 }
 
+type compatibilityError struct {
+	code    string
+	message string
+}
+
+func (e *compatibilityError) Error() string { return e.message }
+
 var jobIDPattern = regexp.MustCompile(`^[0-9a-f]+-[0-9a-f]{12}$`)
 var uploadIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var previewPathPattern = regexp.MustCompile(`^previews/[0-9]{6}\.png$`)
@@ -382,7 +389,12 @@ func (a *API) createJob(w http.ResponseWriter, r *http.Request) {
 	}
 	job, err := a.newJob(request)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_PARAMETERS", err.Error())
+		code := "INVALID_PARAMETERS"
+		var compatibility *compatibilityError
+		if errors.As(err, &compatibility) {
+			code = compatibility.code
+		}
+		writeError(w, http.StatusBadRequest, code, err.Error())
 		return
 	}
 	if err := a.repo.Create(r.Context(), job); err != nil {
@@ -415,6 +427,10 @@ func (a *API) duplicateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		a.internalError(w, "duplicate job", err)
+		return
+	}
+	if compatibility, known := engines.CompatibilityFor(original.Engine); known {
+		writeError(w, http.StatusBadRequest, compatibility.Code, compatibility.Message)
 		return
 	}
 	parameters, err := a.duplicateParameters(original)
@@ -696,6 +712,9 @@ func (a *API) deleteJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) newJob(request jobs.CreateRequest) (jobs.Job, error) {
+	if compatibility, known := engines.CompatibilityFor(request.Engine); known {
+		return jobs.Job{}, &compatibilityError{code: compatibility.Code, message: compatibility.Message}
+	}
 	if len(request.Parameters) == 0 {
 		request.Parameters = json.RawMessage(`{}`)
 	}
@@ -908,7 +927,7 @@ func (a *API) system(w http.ResponseWriter, r *http.Request) {
 	for _, job := range queue {
 		states[string(job.Status)]++
 	}
-	response := map[string]any{"application_name": "Uncanny Lab", "application_version": a.version, "go_version": runtime.Version(), "runtime": probe, "configured_device": a.cfg.Runtime.Device, "queue_length": a.orchestrator.QueueLength(), "job_states": states, "models_directory": a.cfg.Paths.Models, "workspace_directory": a.cfg.Paths.Workspace, "data_free_bytes": freeSpace(a.cfg.Paths.Data)}
+	response := map[string]any{"application_name": "Uncanny Lab", "application_version": a.version, "go_version": runtime.Version(), "runtime": probe, "configured_device": a.cfg.Runtime.Device, "queue_length": a.orchestrator.QueueLength(), "job_states": states, "models_directory": a.cfg.Paths.Models, "workspace_directory": a.cfg.Paths.Workspace, "data_free_bytes": freeSpace(a.cfg.Paths.Data), "compatibility": engines.CompatibilityList()}
 	writeJSON(w, http.StatusOK, response)
 }
 

@@ -36,6 +36,10 @@ models/bundle-b/biggan/generator.pt
 
 The converter validates the expected VGG19 and CLIP state dictionaries and creates the portable VQGAN decoder, VQGAN codebook, and BigGAN generator formats that the app expects. Do not substitute arbitrary checkpoints. You are responsible for verifying each checkpoint's license and terms before downloading, converting, or using it.
 
+### DALL-E Mini compatibility
+
+DALL-E Mini was assessed against the current image and is not supported by this build. The upstream project pins a legacy JAX/Flax runtime and uses separate Flax model artifacts, while Uncanny Lab currently ships a pinned PyTorch 2.11 Intel XPU/CPU worker. The current image contains no JAX, Flax, or DALL-E Mini packages. Installing the existing Bundle B checkpoints or changing configuration cannot make DALL-E Mini runnable. Valid job requests for `dalle-mini` return an explicit compatibility diagnostic instead of creating a job. Future support would require a separately pinned worker environment, local model verification, and independent CPU/XPU validation.
+
 ### Bundle B conversion
 
 The converter requires clean checkouts of [`CompVis/taming-transformers`](https://github.com/CompVis/taming-transformers) at `3ba01b241669f5ade541ce990f7650a3b8f65318` and [`huggingface/pytorch-pretrained-BigGAN`](https://github.com/huggingface/pytorch-pretrained-BigGAN) at `1e18aed2dff75db51428f13b940c38b923eb4a3d`. Download the source files with these exact names: `data/models/classifiers/vgg19.pt`, `data/model-sources/ViT-B-32.pt`, `data/model-sources/vqgan-imagenet-f16-16384.ckpt`, `data/model-sources/vqgan-imagenet-f16-16384.yaml` from `https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fconfigs%2Fmodel.yaml&dl=1`, `data/model-sources/biggan-deep-256.bin`, and `data/model-sources/biggan-deep-256-config.json` from `https://s3.amazonaws.com/models.huggingface.co/biggan/biggan-deep-256-config.json`.
