@@ -364,7 +364,9 @@ func (m *Manager) install(ctx context.Context) error {
 	m.mu.Unlock()
 	m.mu.Lock()
 	m.op.ProvenancePath = filepath.Join(m.models, "bundle-b", "provenance/bundle-b-conversion-report.json")
-	_ = m.persist()
+	if err := m.persist(); err != nil {
+		m.logger.Error("persist installer provenance", "error", err)
+	}
 	m.mu.Unlock()
 	return nil
 }
@@ -373,9 +375,9 @@ func (m *Manager) candidate(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	prefix := "bundle-b-"
-	if len(id) >= 12 {
-		prefix = "bundle-b-"
+	const prefix = "bundle-b-"
+	if len(id) < 12 {
+		return "", os.ErrNotExist
 	}
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) && strings.HasSuffix(entry.Name(), "-"+id[:12]) {
@@ -414,10 +416,6 @@ func (m *Manager) removeOperationArtifacts(op Operation) {
 	if filepath.Dir(target) == filepath.Join(m.models, "bundles") && filepath.Base(target) != "bundle-b" {
 		_ = os.RemoveAll(target)
 	}
-}
-func swapBundle(models, target string) error {
-	prior, _ := os.Readlink(filepath.Join(models, "bundle-b"))
-	return swapBundleWithPrior(models, target, prior)
 }
 func swapBundleWithPrior(models, target, prior string) error {
 	tmp := filepath.Join(models, ".bundle-b-publish")
@@ -510,9 +508,6 @@ func sourceBytes(count int) (n int64) {
 	}
 	return
 }
-func runWithEnv(ctx context.Context, name string, env []string, args ...string) error {
-	return runWithEnvDir(ctx, "", name, env, args...)
-}
 func runWithEnvDir(ctx context.Context, dir, name string, env []string, args ...string) error {
 	c := exec.CommandContext(ctx, name, args...)
 	c.Env = env
@@ -548,12 +543,7 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func (b *limitedBuffer) String() string { return string(b.b) }
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+
 func validOperationID(id string) bool {
 	if len(id) != 32 {
 		return false
@@ -562,12 +552,6 @@ func validOperationID(id string) bool {
 	return err == nil
 }
 
-func verify(p string) error {
-	return verifyBundleWithRevision(p, nil, "", false, true)
-}
-func verifyBundle(p string, expected *Operation, strict bool) error {
-	return verifyBundleWithRevision(p, expected, "", strict, false)
-}
 func verifyBundleWithRevision(p string, expected *Operation, revision string, strict, deep bool) error {
 	return verifyBundleWithRevisionContext(context.Background(), p, expected, revision, strict, deep)
 }
@@ -715,9 +699,6 @@ func verifyReportedArtifactContext(ctx context.Context, root, path string, x pro
 	}
 	return nil
 }
-func fileHash(p string) (string, error) {
-	return fileHashContext(context.Background(), p)
-}
 func fileHashContext(ctx context.Context, p string) (string, error) {
 	f, e := os.Open(p)
 	if e != nil {
@@ -830,7 +811,6 @@ func (r *progressReader) Read(p []byte) (int, error) {
 	}
 	return n, e
 }
-func valid(p string, s Source) bool { ok, _ := validContext(context.Background(), p, s); return ok }
 func validContext(ctx context.Context, p string, s Source) (bool, error) {
 	i, e := os.Stat(p)
 	if errors.Is(e, os.ErrNotExist) {

@@ -55,6 +55,11 @@ LABEL org.opencontainers.image.title="Uncanny Lab" \
       org.opencontainers.image.created="${CREATED}"
 
 COPY python/requirements-runtime.txt /tmp/requirements-runtime.txt
+# Requirements install into this image's python3 interpreter, while the app
+# package below is copied into /opt/venv/lib/python3.12/site-packages. The
+# runtime config points PYTHONPATH at that directory, so `python3 -m
+# uncanny_lab.runner` resolves the app code there and dependencies from the
+# interpreter, whichever absolute location the interpreter uses.
 RUN python3 -m pip install --no-cache-dir --no-deps --require-hashes -r /tmp/requirements-runtime.txt \
     && rm /tmp/requirements-runtime.txt
 COPY python/uncanny_lab /opt/venv/lib/python3.12/site-packages/uncanny_lab

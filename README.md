@@ -105,6 +105,8 @@ UNCANNY_ENABLE_CHECKPOINT_DOWNLOADS=false
 
 For XPU hosts, `UNCANNY_RENDER_DEVICE` defaults to `/dev/dri/renderD128` and `RENDER_GID` must be the group allowed to use that device. Use the CPU Compose override instead of mapping a device when no XPU is available. Set `UNCANNY_BIND_ADDRESS` and `UNCANNY_ALLOWED_HOSTS` deliberately when placing the service behind a reverse proxy.
 
+Preview retention is configured in `config.yaml` under `previews`: `every_steps` controls how often the worker emits a frame, and `max_frames` (default 100, `0` keeps everything) bounds how many previews a completed job keeps on disk. Older frames are pruned after completion, and the UI timeline follows the pruned set.
+
 ## Build and test
 
 Build a local Linux AMD64 image and use it with either Compose configuration:

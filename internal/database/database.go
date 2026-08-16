@@ -203,16 +203,19 @@ func (r *Repository) Get(ctx context.Context, id string) (jobs.Job, error) {
 	return job, nil
 }
 
-func (r *Repository) List(ctx context.Context, limit int) ([]jobs.Job, error) {
-	if limit < 1 || limit > 200 {
+func (r *Repository) List(ctx context.Context, limit, offset int) ([]jobs.Job, error) {
+	if limit < 1 || limit > 100 {
 		limit = 100
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, engine, status, parameters, seed, progress_step, progress_total, preview_path, final_path, error_code, error_message, created_at, started_at, completed_at, engine_version, runtime_device, runtime_precision FROM jobs ORDER BY created_at DESC LIMIT ?`, limit)
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id, engine, status, parameters, seed, progress_step, progress_total, preview_path, final_path, error_code, error_message, created_at, started_at, completed_at, engine_version, runtime_device, runtime_precision FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
 	}
 	defer rows.Close()
-	var result []jobs.Job
+	result := make([]jobs.Job, 0)
 	for rows.Next() {
 		job, err := scanJob(rows)
 		if err != nil {

@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -479,8 +480,12 @@ func (o *Orchestrator) jobFileHashes(jobID string) map[string]string {
 	}
 	result := make(map[string]string)
 	for key, value := range spec.Parameters {
+		// Only per-job input copies are hashed. Checkpoint and generator paths
+		// are immutable catalog artifacts whose integrity is already pinned by
+		// the bundle provenance report, so re-hashing gigabytes per job would
+		// only stall completion.
 		path, ok := value.(string)
-		if !ok || !(strings.HasSuffix(key, "_image") || strings.HasSuffix(key, "_path") || strings.HasSuffix(key, "_checkpoint")) {
+		if !ok || !strings.HasSuffix(key, "_image") {
 			continue
 		}
 		resolved, err := filepath.EvalSymlinks(path)
@@ -671,6 +676,9 @@ func (o *Orchestrator) complete(job *jobs.Job) error {
 	o.mu.Unlock()
 	job.Status = jobs.Completed
 	err := o.finish(job, "", "")
+	if err == nil {
+		o.prunePreviews(job.ID)
+	}
 	o.mu.Lock()
 	delete(o.completing, job.ID)
 	if err == nil {
@@ -685,6 +693,36 @@ func (o *Orchestrator) markCancelled(job *jobs.Job, message string) {
 	job.Status = jobs.Cancelled
 	if err := o.finish(job, "CANCELLED", message); err != nil {
 		o.logger.Error("persist cancelled job", "job_id", job.ID, "error", err)
+	}
+}
+
+// prunePreviews bounds per-job disk usage by keeping only the most recent
+// max_frames previews of a completed job. The timeline reflects the disk, so
+// older frames disappear consistently everywhere.
+func (o *Orchestrator) prunePreviews(jobID string) {
+	maxFrames := o.cfg.Previews.MaxFrames
+	if maxFrames < 1 {
+		return
+	}
+	directory := filepath.Join(o.cfg.JobRoot(), jobID, "previews")
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return
+	}
+	var frames []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".png") {
+			frames = append(frames, entry.Name())
+		}
+	}
+	sort.Strings(frames)
+	if len(frames) <= maxFrames {
+		return
+	}
+	for _, name := range frames[:len(frames)-maxFrames] {
+		if removeErr := os.Remove(filepath.Join(directory, name)); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			o.logger.Debug("prune preview", "job_id", jobID, "file", name, "error", removeErr)
+		}
 	}
 }
 

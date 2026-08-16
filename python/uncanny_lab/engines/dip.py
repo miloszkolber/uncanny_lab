@@ -1,12 +1,13 @@
 """Small, checkpoint-free Deep Image Prior reconstruction engine."""
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from uncanny_lab.common.images import load_image, save_tensor_png
 from uncanny_lab.common.models import local_file, require_torch
-from uncanny_lab.common.progress import emit
+from uncanny_lab.common.progress import PreviewWriter, emit
 from uncanny_lab.engines.base import Engine
 from uncanny_lab.engines.vision import integer, number
 from uncanny_lab.errors import invalid
@@ -31,16 +32,21 @@ class DeepImagePriorEngine(Engine):
         net = build_network(library, runtime.device)
         noise = library.rand((1, 32, parameters["height"], parameters["width"]), device=runtime.device)
         optimizer = library.optim.Adam(net.parameters(), lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
         output = target
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            output = net(noise + library.randn_like(noise) * parameters["noise_std"])
-            library.nn.functional.mse_loss(output, target).backward(); optimizer.step()
-            with library.no_grad(): output = net(noise)
-            emit("progress", step=step, total=parameters["iterations"])
-            preview = job.get("preview", {}); every = max(1, int(preview.get("every_steps", 5)))
-            if bool(preview.get("enabled", True)) and (step == 1 or step % every == 0 or step == parameters["iterations"]):
-                relative = f"previews/{step:06d}.png"; save_tensor_png(job_dir / relative, output); emit("preview", step=step, path=relative)
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
+                output = net(noise + library.randn_like(noise) * parameters["noise_std"])
+                library.nn.functional.mse_loss(output, target).backward(); optimizer.step()
+                with library.no_grad(): output = net(noise)
+                emit("progress", step=step, total=parameters["iterations"])
+                preview = job.get("preview", {}); every = max(1, int(preview.get("every_steps", 5)))
+                if bool(preview.get("enabled", True)) and (step == 1 or step % every == 0 or step == parameters["iterations"]):
+                    relative = f"previews/{step:06d}.png"; writer.submit(job_dir / relative, step, partial(save_tensor_png, job_dir / relative, output))
+        finally:
+            writer.stop()
         with library.no_grad(): output = net(noise)
         save_tensor_png(job_dir / "final.png", output); emit("completed", path="final.png", device=runtime.device)

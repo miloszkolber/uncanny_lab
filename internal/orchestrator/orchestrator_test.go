@@ -47,7 +47,7 @@ func TestErrorEventCannotBeOverwrittenByCompletion(t *testing.T) {
 	}
 }
 
-func TestJobFileHashesIncludesOnlyApprovedParameterFiles(t *testing.T) {
+func TestJobFileHashesIncludesOnlyPerJobInputFiles(t *testing.T) {
 	root := t.TempDir()
 	jobID := "123-0123456789ab"
 	jobDir := filepath.Join(root, "workspace", "jobs", jobID)
@@ -74,7 +74,7 @@ func TestJobFileHashesIncludesOnlyApprovedParameterFiles(t *testing.T) {
 	}
 	orchestrator := &Orchestrator{cfg: config.Config{Paths: config.PathsConfig{Data: root, Workspace: filepath.Join(root, "workspace")}}}
 	hashes := orchestrator.jobFileHashes(jobID)
-	if len(hashes) != 2 || hashes["source_image"] == "" || hashes["classifier_path"] == "" {
+	if len(hashes) != 1 || hashes["source_image"] == "" {
 		t.Fatalf("unexpected file hashes: %#v", hashes)
 	}
 }
@@ -181,5 +181,33 @@ func TestUnrequestedSignalExitIsWorkerFailure(t *testing.T) {
 	}
 	if !shouldFailWorkerExit(err, false) {
 		t.Fatalf("unrequested signal exit was not treated as a worker failure: %v", err)
+	}
+}
+
+func TestPrunePreviewsKeepsOnlyNewestFrames(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{Paths: config.PathsConfig{Data: root, Workspace: filepath.Join(root, "workspace")}, Previews: config.PreviewConfig{MaxFrames: 2}}
+	jobID := "123-0123456789ab"
+	directory := filepath.Join(cfg.JobRoot(), jobID, "previews")
+	if err := os.MkdirAll(directory, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"000001.png", "000002.png", "000003.png", "000004.png", "000005.png"} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte("frame"), 0o640); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runner := New(nil, nil, cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	runner.prunePreviews(jobID)
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var remaining []string
+	for _, entry := range entries {
+		remaining = append(remaining, entry.Name())
+	}
+	if len(remaining) != 2 || remaining[0] != "000004.png" || remaining[1] != "000005.png" {
+		t.Fatalf("remaining previews = %v, want the two newest", remaining)
 	}
 }

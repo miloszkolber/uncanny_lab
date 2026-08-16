@@ -49,6 +49,9 @@ type PathsConfig struct {
 type PreviewConfig struct {
 	Enabled    bool `yaml:"enabled"`
 	EverySteps int  `yaml:"every_steps"`
+	// MaxFrames bounds how many preview frames a completed job keeps on disk
+	// (0 keeps everything). Older frames are pruned after completion.
+	MaxFrames int `yaml:"max_frames"`
 }
 
 // CheckpointDownloads is deliberately opt-in. A non-boolean environment value
@@ -62,7 +65,7 @@ func defaults() Config {
 		Server:              ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Runtime:             RuntimeConfig{Device: "xpu", DefaultPrecision: "fp32", PythonExecutable: "python3", PythonPath: "/opt/venv/lib/python3.12/site-packages"},
 		Paths:               PathsConfig{Data: "/data", Models: "/data/models", Inputs: "/data/inputs", Workspace: "/data/workspace", Manifests: "/app/manifests/engines"},
-		Previews:            PreviewConfig{Enabled: true, EverySteps: 5},
+		Previews:            PreviewConfig{Enabled: true, EverySteps: 5, MaxFrames: 100},
 		CheckpointDownloads: CheckpointDownloadsConfig{Enabled: false},
 	}
 }
@@ -175,6 +178,9 @@ func (c Config) Validate() error {
 	if c.Previews.EverySteps < 1 {
 		return errors.New("previews.every_steps must be positive")
 	}
+	if c.Previews.MaxFrames < 0 {
+		return errors.New("previews.max_frames must not be negative")
+	}
 	return nil
 }
 
@@ -183,9 +189,23 @@ func (c Config) EnsureDirectories() error {
 		if path == "" {
 			continue
 		}
-		if err := os.MkdirAll(path, 0o750); err != nil {
-			return fmt.Errorf("create %s: %w", path, err)
+		if err := ensureDirectory(path); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// ensureDirectory creates a directory with the expected permissions, but only
+// tightens permissions on directories it actually created. Pre-existing
+// directories keep whatever the operator configured.
+func ensureDirectory(path string) error {
+	_, err := os.Stat(path)
+	created := errors.Is(err, os.ErrNotExist)
+	if err := os.MkdirAll(path, 0o750); err != nil {
+		return fmt.Errorf("create %s: %w", path, err)
+	}
+	if created {
 		if err := os.Chmod(path, 0o750); err != nil {
 			return fmt.Errorf("secure %s: %w", path, err)
 		}

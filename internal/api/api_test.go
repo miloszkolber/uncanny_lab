@@ -130,7 +130,7 @@ func TestSystemIncludesCompatibilityCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	a := &API{repo: repo, cfg: config.Config{Paths: config.PathsConfig{Data: root, Workspace: root}, Runtime: config.RuntimeConfig{Device: "cpu", PythonExecutable: "false", PythonPath: ""}}}
+	a := &API{repo: repo, cfg: config.Config{Paths: config.PathsConfig{Data: root, Workspace: root}, Runtime: config.RuntimeConfig{Device: "cpu", PythonExecutable: "false", PythonPath: ""}}, probe: &runtimeProbe{run: func() map[string]any { return map[string]any{"available": true, "device": "cpu"} }}}
 	a.orchestrator = orchestrator.New(repo, events.NewBroker(), a.cfg, slog.Default())
 	response := httptest.NewRecorder()
 	a.system(response, httptest.NewRequest(http.MethodGet, "/api/system", nil))

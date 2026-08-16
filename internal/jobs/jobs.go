@@ -57,22 +57,6 @@ func NewID(now time.Time) (string, error) {
 	return fmt.Sprintf("%x-%s", now.UTC().UnixMilli(), hex.EncodeToString(random)), nil
 }
 
-func CanTransition(from, to Status) bool {
-	allowed := map[Status][]Status{
-		Queued:       {Preparing, Cancelled},
-		Preparing:    {LoadingModel, Running, Failed, Cancelled},
-		LoadingModel: {Running, Failed, Cancelled},
-		Running:      {Saving, Completed, Failed, Cancelled},
-		Saving:       {Completed, Failed, Cancelled},
-	}
-	for _, candidate := range allowed[from] {
-		if candidate == to {
-			return true
-		}
-	}
-	return false
-}
-
 func ValidateCreate(req CreateRequest) error {
 	if len(req.Parameters) == 0 {
 		req.Parameters = json.RawMessage(`{}`)

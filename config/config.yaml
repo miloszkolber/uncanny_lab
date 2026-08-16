@@ -18,6 +18,7 @@ paths:
 previews:
   enabled: true
   every_steps: 5
+  max_frames: 100
 
 checkpoint_downloads:
   enabled: false

@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import math
 import time
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from uncanny_lab.common.images import write_rgb_png
-from uncanny_lab.common.progress import emit
+from uncanny_lab.common.progress import PreviewWriter, emit
 from uncanny_lab.engines.base import Engine
 from uncanny_lab.runtime.device import Runtime, torch
 
@@ -32,17 +33,21 @@ class TestPatternEngine(Engine):
         keep_previews = bool(preview.get("enabled", True))
         prompt_phase = int.from_bytes(hashlib.sha256(parameters["prompt"].encode()).digest()[:4], "little") / 2**32
         runtime.seed(int(job["seed"]))
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
 
         pixels = b""
-        for step in range(1, total + 1):
-            pixels = self._frame(width, height, step, total, prompt_phase, runtime)
-            emit("progress", step=step, total=total)
-            if keep_previews and (step == 1 or step % preview_every == 0 or step == total):
-                relative = f"previews/{step:06d}.png"
-                write_rgb_png(job_dir / relative, width, height, pixels)
-                emit("preview", step=step, path=relative)
-            time.sleep(0.02)
+        try:
+            for step in range(1, total + 1):
+                pixels = self._frame(width, height, step, total, prompt_phase, runtime)
+                emit("progress", step=step, total=total)
+                if keep_previews and (step == 1 or step % preview_every == 0 or step == total):
+                    relative = f"previews/{step:06d}.png"
+                    writer.submit(job_dir / relative, step, partial(write_rgb_png, job_dir / relative, width, height, pixels))
+                time.sleep(0.02)
+        finally:
+            writer.stop()
 
         write_rgb_png(job_dir / "final.png", width, height, pixels)
         emit("completed", path="final.png", device=runtime.device)
@@ -60,7 +65,7 @@ class TestPatternEngine(Engine):
                 green = (torch.sin(angle * (2 + progress * 4) + radial * 12 - phase * 3) + 1) * 127.5
                 blue = (torch.cos((x - y) * (4 + progress * 9) + phase * 9) + 1) * 127.5
                 image = torch.stack((red.expand(height, width), green.expand(height, width), blue.expand(height, width)), dim=-1)
-                pixels = bytes(image.clamp(0, 255).to(torch.uint8).cpu().contiguous().view(-1).tolist())
+                pixels = image.clamp(0, 255).to(torch.uint8).cpu().contiguous().view(-1).numpy().tobytes()
             runtime.synchronize()
             return pixels
 

@@ -12,6 +12,9 @@ from uncanny_lab.runtime.device import torch
 VGG_MEAN = (0.485, 0.456, 0.406)
 VGG_STD = (0.229, 0.224, 0.225)
 
+# Reused per device/dtype so every forward pass does not reallocate them.
+_normalization_stats: dict[tuple[str, str], tuple[Any, Any]] = {}
+
 
 def local_file(value: Any, name: str, *, model: bool = False) -> Path:
     if not isinstance(value, str) or not value:
@@ -85,9 +88,14 @@ class VGGFeatures(require_torch().nn.Module if torch is not None else object):
 
 def normalize_vgg(image: Any) -> Any:
     library = require_torch()
-    mean = library.tensor(VGG_MEAN, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
-    std = library.tensor(VGG_STD, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
-    return (image - mean) / std
+    key = (str(image.device), str(image.dtype))
+    stats = _normalization_stats.get(key)
+    if stats is None:
+        mean = library.tensor(VGG_MEAN, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
+        std = library.tensor(VGG_STD, device=image.device, dtype=image.dtype).view(1, 3, 1, 1)
+        stats = (mean, std)
+        _normalization_stats[key] = stats
+    return (image - stats[0]) / stats[1]
 
 
 def load_vgg(path: Path, device: str) -> VGGFeatures:

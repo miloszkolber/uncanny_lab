@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from uncanny_lab.common.images import load_image, save_tensor_png
 from uncanny_lab.common.models import load_vgg, local_file, require_torch
-from uncanny_lab.common.progress import emit
+from uncanny_lab.common.progress import PreviewWriter, emit
 from uncanny_lab.errors import WorkerError, invalid
 from uncanny_lab.engines.base import Engine
 from uncanny_lab.runtime.device import Runtime
@@ -66,14 +67,13 @@ def gram(value: Any) -> Any:
 
 
 class FeatureEngine(Engine):
-    def _events(self, image: Any, step: int, total: int, job: dict[str, Any], job_dir: Path) -> None:
+    def _events(self, image: Any, step: int, total: int, job: dict[str, Any], job_dir: Path, writer: PreviewWriter) -> None:
         emit("progress", step=step, total=total)
         preview = job.get("preview", {})
         every = max(1, int(preview.get("every_steps", 5)))
         if bool(preview.get("enabled", True)) and (step == 1 or step % every == 0 or step == total):
             relative = f"previews/{step:06d}.png"
-            save_tensor_png(job_dir / relative, image)
-            emit("preview", step=step, path=relative)
+            writer.submit(job_dir / relative, step, partial(save_tensor_png, job_dir / relative, image))
 
 
 class NeuralStyleEngine(FeatureEngine):
@@ -95,17 +95,22 @@ class NeuralStyleEngine(FeatureEngine):
             style_targets = {name: gram(value) for name, value in model.forward_features(style, wanted).items() if name in STYLE_LAYERS}
         result = source.clone().requires_grad_(True)
         optimizer = library.optim.Adam([result], lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            features = model.forward_features(result, wanted)
-            content_loss = library.nn.functional.mse_loss(features[CONTENT_LAYER], content)
-            style_loss = sum(library.nn.functional.mse_loss(gram(features[name]), style_targets[name]) for name in STYLE_LAYERS)
-            loss = parameters["content_weight"] * content_loss + parameters["style_weight"] * style_loss
-            loss.backward()
-            optimizer.step()
-            with library.no_grad(): result.clamp_(0, 1)
-            self._events(result, step, parameters["iterations"], job, job_dir)
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
+                features = model.forward_features(result, wanted)
+                content_loss = library.nn.functional.mse_loss(features[CONTENT_LAYER], content)
+                style_loss = sum(library.nn.functional.mse_loss(gram(features[name]), style_targets[name]) for name in STYLE_LAYERS)
+                loss = parameters["content_weight"] * content_loss + parameters["style_weight"] * style_loss
+                loss.backward()
+                optimizer.step()
+                with library.no_grad(): result.clamp_(0, 1)
+                self._events(result, step, parameters["iterations"], job, job_dir, writer)
+        finally:
+            writer.stop()
         runtime.synchronize()
         save_tensor_png(job_dir / "final.png", result)
         emit("completed", path="final.png", device=runtime.device)
@@ -130,22 +135,27 @@ class DeepDreamEngine(FeatureEngine):
         if parameters["layer"] not in {f"features.{index}" for index in range(len(model.features))}:
             raise WorkerError("INVALID_PARAMETERS", f"unknown VGG feature layer: {parameters['layer']}")
         image = load_image(parameters["source_image"], parameters["width"], parameters["height"], runtime.device)
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
         total, global_step = parameters["iterations"] * parameters["octaves"], 0
-        for octave in range(parameters["octaves"]):
-            if octave:
-                scale = parameters["octave_scale"]
-                image = library.nn.functional.interpolate(image, scale_factor=scale, mode="bilinear", align_corners=False)
-            image = image.detach().requires_grad_(True)
-            optimizer = library.optim.Adam([image], lr=parameters["learning_rate"])
-            for _ in range(parameters["iterations"]):
-                global_step += 1
-                optimizer.zero_grad(set_to_none=True)
-                activation = model.forward_features(image, {parameters["layer"]})[parameters["layer"]]
-                (-activation.mean()).backward()
-                optimizer.step()
-                with library.no_grad(): image.clamp_(0, 1)
-                self._events(image, global_step, total, job, job_dir)
+        try:
+            for octave in range(parameters["octaves"]):
+                if octave:
+                    scale = parameters["octave_scale"]
+                    image = library.nn.functional.interpolate(image, scale_factor=scale, mode="bilinear", align_corners=False)
+                image = image.detach().requires_grad_(True)
+                optimizer = library.optim.Adam([image], lr=parameters["learning_rate"])
+                for _ in range(parameters["iterations"]):
+                    global_step += 1
+                    optimizer.zero_grad(set_to_none=True)
+                    activation = model.forward_features(image, {parameters["layer"]})[parameters["layer"]]
+                    (-activation.mean()).backward()
+                    optimizer.step()
+                    with library.no_grad(): image.clamp_(0, 1)
+                    self._events(image, global_step, total, job, job_dir, writer)
+        finally:
+            writer.stop()
         image = library.nn.functional.interpolate(image, size=(parameters["height"], parameters["width"]), mode="bilinear", align_corners=False)
         save_tensor_png(job_dir / "final.png", image)
         emit("completed", path="final.png", device=runtime.device)
@@ -180,14 +190,19 @@ class ActivationMaxEngine(FeatureEngine):
         image = load_image(parameters["source_image"], parameters["width"], parameters["height"], runtime.device) if parameters["init"] == "source" else library.rand((1, 3, parameters["height"], parameters["width"]), device=runtime.device)
         image.requires_grad_(True)
         optimizer = library.optim.Adam([image], lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            activation = model.forward_features(image, {parameters["layer"]})[parameters["layer"]]
-            if parameters["channel"] >= activation.shape[1]: raise invalid("channel is not present in the selected layer")
-            loss = -activation[:, parameters["channel"]].mean() + 1e-4 * image.square().mean()
-            loss.backward(); optimizer.step()
-            with library.no_grad(): image.clamp_(0, 1)
-            self._events(image, step, parameters["iterations"], job, job_dir)
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
+                activation = model.forward_features(image, {parameters["layer"]})[parameters["layer"]]
+                if parameters["channel"] >= activation.shape[1]: raise invalid("channel is not present in the selected layer")
+                loss = -activation[:, parameters["channel"]].mean() + 1e-4 * image.square().mean()
+                loss.backward(); optimizer.step()
+                with library.no_grad(): image.clamp_(0, 1)
+                self._events(image, step, parameters["iterations"], job, job_dir, writer)
+        finally:
+            writer.stop()
         save_tensor_png(job_dir / "final.png", image)
         emit("completed", path="final.png", device=runtime.device)

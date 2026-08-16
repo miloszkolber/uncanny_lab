@@ -14,6 +14,7 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
+	"math"
 	"mime"
 	"net/http"
 	"net/url"
@@ -23,10 +24,13 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/image/draw"
 
 	"github.com/miloszkolber/uncanny-lab/internal/config"
 	"github.com/miloszkolber/uncanny-lab/internal/database"
@@ -48,9 +52,48 @@ type API struct {
 	registry     *engines.Registry
 	installer    *modelinstall.Manager
 	verifySem    chan struct{}
-	systemMu     sync.Mutex
-	systemCache  map[string]any
-	systemCached time.Time
+	probe        *runtimeProbe
+}
+
+// runtimeProbe caches the Python runtime self-test result and refreshes it in
+// the background, so /api/system never blocks a request on subprocess work.
+type runtimeProbe struct {
+	mu      sync.Mutex
+	value   map[string]any
+	loaded  time.Time
+	probing bool
+	run     func() map[string]any
+}
+
+func (p *runtimeProbe) snapshot() map[string]any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.value != nil && time.Since(p.loaded) < 30*time.Second {
+		return p.value
+	}
+	if !p.probing {
+		go p.refresh()
+	}
+	if p.value != nil {
+		return p.value // stale-while-revalidate
+	}
+	return map[string]any{"available": false, "pending": true, "error": "Runtime probe is starting"}
+}
+
+func (p *runtimeProbe) refresh() {
+	p.mu.Lock()
+	if p.probing {
+		p.mu.Unlock()
+		return
+	}
+	p.probing = true
+	p.mu.Unlock()
+	value := p.run()
+	p.mu.Lock()
+	p.value = value
+	p.loaded = time.Now()
+	p.probing = false
+	p.mu.Unlock()
 }
 
 type compatibilityError struct {
@@ -74,6 +117,10 @@ func New(repo *database.Repository, runner *orchestrator.Orchestrator, broker *e
 		return nil, err
 	}
 	a := &API{repo: repo, orchestrator: runner, broker: broker, cfg: cfg, version: version, logger: logger, registry: registry, verifySem: make(chan struct{}, 2), installer: installer}
+	a.probe = &runtimeProbe{run: a.runRuntimeProbe}
+	// Warm the runtime probe in the background so the first System page visit
+	// already has a result instead of a pending state.
+	go a.probe.refresh()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.health)
 	mux.HandleFunc("GET /api/engines", a.engines)
@@ -201,16 +248,24 @@ func (a *API) installError(w http.ResponseWriter, e error) {
 	}
 }
 func decodeSmallJSON(w http.ResponseWriter, r *http.Request, target any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, 1024)
-	d := json.NewDecoder(r.Body)
-	d.DisallowUnknownFields()
-	if e := d.Decode(target); e != nil {
-		writeError(w, 400, "INVALID_JSON", "Request body must contain valid JSON")
-		return e
+	return decodeJSONLimit(w, r, target, 1024)
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	return decodeJSONLimit(w, r, target, 1<<20)
+}
+
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, target any, limit int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Request body must contain valid JSON")
+		return err
 	}
-	if e := d.Decode(&struct{}{}); !errors.Is(e, io.EOF) {
-		writeError(w, 400, "INVALID_JSON", "Request body must contain one JSON object")
-		return errors.New("trailing data")
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Request body must contain one JSON object")
+		return errors.New("trailing JSON data")
 	}
 	return nil
 }
@@ -258,6 +313,7 @@ func (a *API) verifyModel(w http.ResponseWriter, r *http.Request) {
 const maxUploadBytes = 32 << 20
 const maxImagePixels = 40_000_000
 const maxImageDimension = 12_000
+const maxUploadDimension = 2048
 
 func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	if !sameOrigin(r) {
@@ -297,6 +353,12 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusUnsupportedMediaType, "INVALID_IMAGE", "Upload must be a PNG or JPEG image")
 		return
+	}
+	// The worker downscales inputs to at most 1024px anyway, so normalize
+	// oversized uploads here: the PNG re-encode stays fast and bounded in
+	// memory instead of buffering a 40-megapixel image.
+	if decoded.Width > maxUploadDimension || decoded.Height > maxUploadDimension {
+		img = resizeImage(img, maxUploadDimension)
 	}
 	var random [16]byte
 	if _, err := rand.Read(random[:]); err != nil {
@@ -349,13 +411,21 @@ func (a *API) getUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
-	items, err := a.repo.List(r.Context(), 100)
+	limit, offset := 100, 0
+	if value := r.URL.Query().Get("limit"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			limit = parsed
+		}
+	}
+	if value := r.URL.Query().Get("offset"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	items, err := a.repo.List(r.Context(), limit, offset)
 	if err != nil {
 		a.internalError(w, "list jobs", err)
 		return
-	}
-	for index := range items {
-		a.attachFrames(&items[index])
 	}
 	writeJSON(w, http.StatusOK, items)
 }
@@ -900,35 +970,66 @@ func (a *API) artifact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) system(w http.ResponseWriter, r *http.Request) {
-	a.systemMu.Lock()
-	var probe map[string]any
-	if a.systemCache != nil && time.Since(a.systemCached) < 30*time.Second {
-		probe, _ = a.systemCache["runtime"].(map[string]any)
-	} else {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "uncanny_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
-		command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath, "UNCANNY_DATA_ROOT="+a.cfg.Paths.Data, "UNCANNY_MODELS_ROOT="+a.cfg.Paths.Models)
-		output, err := command.Output()
-		cancel()
-		probe = map[string]any{}
-		if err == nil {
-			if decodeErr := json.Unmarshal(output, &probe); decodeErr != nil {
-				probe["error"] = "Runtime returned invalid data"
-			}
-		} else {
-			probe["available"] = false
-			probe["error"] = "Runtime probe failed"
-		}
-		a.systemCache, a.systemCached = map[string]any{"runtime": probe}, time.Now()
-	}
-	a.systemMu.Unlock()
-	queue, _ := a.repo.List(r.Context(), 200)
+	probe := a.probe.snapshot()
+	queue, _ := a.repo.List(r.Context(), 100, 0)
 	states := map[string]int{}
 	for _, job := range queue {
 		states[string(job.Status)]++
 	}
 	response := map[string]any{"application_name": "Uncanny Lab", "application_version": a.version, "go_version": runtime.Version(), "runtime": probe, "configured_device": a.cfg.Runtime.Device, "queue_length": a.orchestrator.QueueLength(), "job_states": states, "models_directory": a.cfg.Paths.Models, "workspace_directory": a.cfg.Paths.Workspace, "data_free_bytes": freeSpace(a.cfg.Paths.Data), "compatibility": engines.CompatibilityList()}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// runRuntimeProbe executes the Python self-test with a generous timeout. The
+// XPU images import PyTorch slowly, so a short deadline would report a healthy
+// runtime as unavailable.
+func (a *API) runRuntimeProbe() map[string]any {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, a.cfg.Runtime.PythonExecutable, "-m", "uncanny_lab.runner", "--self-test", "--device", a.cfg.Runtime.Device)
+	command.Env = append(os.Environ(), "PYTHONPATH="+a.cfg.Runtime.PythonPath, "UNCANNY_DATA_ROOT="+a.cfg.Paths.Data, "UNCANNY_MODELS_ROOT="+a.cfg.Paths.Models)
+	output, err := command.CombinedOutput()
+	probe := map[string]any{}
+	if err == nil {
+		if decodeErr := json.Unmarshal(output, &probe); decodeErr != nil {
+			probe["error"] = "Runtime returned invalid data"
+		}
+	} else {
+		probe["available"] = false
+		probe["error"] = "Runtime probe failed"
+		if detail := outputTail(output, 4); detail != "" {
+			probe["detail"] = detail
+		}
+	}
+	return probe
+}
+
+func outputTail(output []byte, lines int) string {
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return ""
+	}
+	parts := strings.Split(trimmed, "\n")
+	if len(parts) <= lines {
+		return trimmed
+	}
+	return strings.Join(parts[len(parts)-lines:], "\n")
+}
+
+func resizeImage(source image.Image, maxDimension int) image.Image {
+	width, height := source.Bounds().Dx(), source.Bounds().Dy()
+	scale := float64(maxDimension) / float64(max(width, height))
+	targetWidth := int(math.Round(float64(width) * scale))
+	targetHeight := int(math.Round(float64(height) * scale))
+	if targetWidth < 1 {
+		targetWidth = 1
+	}
+	if targetHeight < 1 {
+		targetHeight = 1
+	}
+	target := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
+	draw.CatmullRom.Scale(target, target.Bounds(), source, source.Bounds(), draw.Over, nil)
+	return target
 }
 
 func (a *API) internalError(w http.ResponseWriter, operation string, err error) {
@@ -989,21 +1090,6 @@ func freeSpace(path string) int64 {
 	return int64(stat.Bavail) * int64(stat.Bsize)
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Request body must contain valid JSON")
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Request body must contain one JSON object")
-		return errors.New("trailing JSON data")
-	}
-	return nil
-}
-
 func sameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
@@ -1037,6 +1123,7 @@ func randomSeed() int64 {
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }
@@ -1059,6 +1146,22 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		next.ServeHTTP(w, r)
+		// Static assets, artifact media, and health checks are high-frequency
+		// noise; keep them out of the Info log.
+		if quietLogPath(r.URL.Path) {
+			logger.Debug("HTTP request", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(started).Milliseconds())
+			return
+		}
 		logger.Info("HTTP request", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(started).Milliseconds())
 	})
+}
+
+func quietLogPath(path string) bool {
+	switch {
+	case path == "/" || path == "/healthz" || path == "/favicon.svg" || path == "/styles.css" || path == "/app.js" || path == "/lucide.svg":
+		return true
+	case strings.HasPrefix(path, "/artifacts/"), strings.HasPrefix(path, "/api/uploads/"):
+		return true
+	}
+	return false
 }

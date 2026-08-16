@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from uncanny_lab.common.images import save_tensor_png
 from uncanny_lab.common.models import load_state_dict, load_torchscript, local_file, require_torch
-from uncanny_lab.common.progress import emit
+from uncanny_lab.common.progress import PreviewWriter, emit
 from uncanny_lab.engines.base import Engine
 from uncanny_lab.engines.vision import integer, number
 from uncanny_lab.errors import WorkerError, invalid
@@ -81,9 +82,15 @@ def encode_image(clip: Any, image: Any) -> Any:
     return encoded / encoded.norm(dim=-1, keepdim=True)
 
 
-def display_image(generated: Any, width: int, height: int) -> Any:
+def display_image(generated: Any, width: int, height: int, needs_shift: bool) -> Any:
+    """Map a generator output into [0, 1] for preview and CLIP encoding.
+
+    needs_shift is determined once per run from the generator probe, so the
+    optimization loop never performs a per-step device-to-host sync just to
+    inspect the output range.
+    """
     library = require_torch()
-    image = (generated + 1) / 2 if generated.detach().min().item() < 0 else generated
+    image = (generated + 1) / 2 if needs_shift else generated
     image = image.clamp(0, 1)
     return library.nn.functional.interpolate(image, size=(height, width), mode="bicubic", align_corners=False).clamp(0, 1)
 
@@ -120,14 +127,13 @@ def validate_biggan_output(output: Any, latent: Any) -> None:
         raise WorkerError("UNSUPPORTED_MODEL", f"BigGAN-deep-256 generator must return {expected}")
 
 
-def progress(job: dict[str, Any], job_dir: Path, image: Any, step: int, total: int) -> None:
+def progress(job: dict[str, Any], job_dir: Path, image: Any, step: int, total: int, writer: PreviewWriter) -> None:
     emit("progress", step=step, total=total)
     preview = job.get("preview", {})
     every = max(1, int(preview.get("every_steps", 5)))
     if bool(preview.get("enabled", True)) and (step == 1 or step % every == 0 or step == total):
         relative = f"previews/{step:06d}.png"
-        save_tensor_png(job_dir / relative, image)
-        emit("preview", step=step, path=relative)
+        writer.submit(job_dir / relative, step, partial(save_tensor_png, job_dir / relative, image))
 
 
 class DeepDazeEngine(Engine):
@@ -157,15 +163,20 @@ class DeepDazeEngine(Engine):
         yy, xx = library.meshgrid(library.linspace(-1, 1, parameters["height"], device=runtime.device), library.linspace(-1, 1, parameters["width"], device=runtime.device), indexing="ij")
         coords = library.stack((xx, yy), -1).reshape(-1, 2)
         optimizer = library.optim.Adam(network.parameters(), lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            image = network(coords).reshape(parameters["height"], parameters["width"], 3).permute(2, 0, 1).unsqueeze(0)
-            (-(encode_image(clip, image) * target).sum()).backward()
-            optimizer.step()
-            with library.no_grad():
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
                 image = network(coords).reshape(parameters["height"], parameters["width"], 3).permute(2, 0, 1).unsqueeze(0)
-            progress(job, job_dir, image, step, parameters["iterations"])
+                (-(encode_image(clip, image) * target).sum()).backward()
+                optimizer.step()
+                with library.no_grad():
+                    image = network(coords).reshape(parameters["height"], parameters["width"], 3).permute(2, 0, 1).unsqueeze(0)
+                progress(job, job_dir, image, step, parameters["iterations"], writer)
+        finally:
+            writer.stop()
         save_tensor_png(job_dir / "final.png", image)
         emit("completed", path="final.png", device=runtime.device)
 
@@ -199,18 +210,24 @@ class VQGANClipEngine(Engine):
         except Exception as error:
             raise WorkerError("UNSUPPORTED_MODEL", "VQGAN decoder must accept a quantized BCHW embedding grid") from error
         validate_vqgan_output(probe, latent)
+        needs_shift = probe.min().item() < 0
         optimizer = library.optim.Adam([latent], lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            quantized = vector_quantize(latent, codebook)
-            image = display_image(decoder(quantized), parameters["width"], parameters["height"])
-            loss = -(encode_image(clip, image) * target).sum() + parameters["commitment_weight"] * library.nn.functional.mse_loss(latent, quantized.detach())
-            loss.backward()
-            optimizer.step()
-            with library.no_grad():
-                image = display_image(decoder(vector_quantize(latent, codebook)), parameters["width"], parameters["height"])
-            progress(job, job_dir, image, step, parameters["iterations"])
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
+                quantized = vector_quantize(latent, codebook)
+                image = display_image(decoder(quantized), parameters["width"], parameters["height"], needs_shift)
+                loss = -(encode_image(clip, image) * target).sum() + parameters["commitment_weight"] * library.nn.functional.mse_loss(latent, quantized.detach())
+                loss.backward()
+                optimizer.step()
+                with library.no_grad():
+                    image = display_image(decoder(vector_quantize(latent, codebook)), parameters["width"], parameters["height"], needs_shift)
+                progress(job, job_dir, image, step, parameters["iterations"], writer)
+        finally:
+            writer.stop()
         save_tensor_png(job_dir / "final.png", image)
         emit("completed", path="final.png", device=runtime.device)
 
@@ -244,18 +261,24 @@ class BigSleepEngine(Engine):
         except Exception as error:
             raise WorkerError("UNSUPPORTED_MODEL", "BigGAN generator must accept latent and class-probability tensors") from error
         validate_biggan_output(probe, latent)
+        needs_shift = probe.min().item() < 0
         optimizer = library.optim.Adam([latent, class_logits], lr=parameters["learning_rate"])
+        writer = PreviewWriter()
+        writer.start()
         emit("started", device=runtime.device, fallback=runtime.fallback)
-        for step in range(1, parameters["iterations"] + 1):
-            optimizer.zero_grad(set_to_none=True)
-            classes = class_logits.softmax(-1)
-            image = display_image(generator(latent, classes), parameters["width"], parameters["height"])
-            entropy = -(classes * classes.clamp_min(1e-8).log()).sum()
-            loss = -(encode_image(clip, image) * target).sum() + parameters["class_entropy_weight"] * entropy
-            loss.backward()
-            optimizer.step()
-            with library.no_grad():
-                image = display_image(generator(latent, class_logits.softmax(-1)), parameters["width"], parameters["height"])
-            progress(job, job_dir, image, step, parameters["iterations"])
+        try:
+            for step in range(1, parameters["iterations"] + 1):
+                optimizer.zero_grad(set_to_none=True)
+                classes = class_logits.softmax(-1)
+                image = display_image(generator(latent, classes), parameters["width"], parameters["height"], needs_shift)
+                entropy = -(classes * classes.clamp_min(1e-8).log()).sum()
+                loss = -(encode_image(clip, image) * target).sum() + parameters["class_entropy_weight"] * entropy
+                loss.backward()
+                optimizer.step()
+                with library.no_grad():
+                    image = display_image(generator(latent, class_logits.softmax(-1)), parameters["width"], parameters["height"], needs_shift)
+                progress(job, job_dir, image, step, parameters["iterations"], writer)
+        finally:
+            writer.stop()
         save_tensor_png(job_dir / "final.png", image)
         emit("completed", path="final.png", device=runtime.device)
