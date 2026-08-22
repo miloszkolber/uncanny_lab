@@ -1,0 +1,44 @@
+/* -- Select component ------------------------------------------- */
+
+@layer components {
+  .select {
+    appearance: none;
+    height: var(--size-08);
+    width: 100%;
+    border: var(--border-width-01) solid var(--border-secondary);
+
+    background-color: var(--background);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-03) center;
+    padding: 0 var(--space-08) 0 var(--space-03);
+    font-size: var(--font-body-small);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    outline: none;
+
+    cursor: pointer;
+    &:focus {
+      border-color: var(--border-ring);
+      outline: var(--focus-ring-width) solid var(--border-ring);
+      outline-offset: var(--border-width-01);
+    }
+
+    &:disabled {
+      opacity: var(--opacity-05);
+      cursor: not-allowed;
+    }
+
+    &:is([aria-invalid="true"], :user-invalid) {
+      border-color: var(--text-negative);
+
+      &:focus {
+        border-color: var(--text-negative);
+        outline: var(--focus-ring-width) solid var(--text-negative);
+        outline-offset: var(--border-width-01);
+      }
+    }
+
+    /* -- Sizes ----------------------------------------------- */
+  }
+}

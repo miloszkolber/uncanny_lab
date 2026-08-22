@@ -1,0 +1,74 @@
+/* mewa_ui — tokens */
+:root {
+  color-scheme: light;
+  /* Page and container surfaces */
+  --background: var(--color-neutral-50);
+  --background-glass: color-mix(in oklch, var(--color-neutral-50) 85%, transparent);
+  --surface-primary: var(--color-neutral-50);
+  --surface-primary-glass: color-mix(in oklch, var(--color-neutral-50) 85%, transparent);
+  --surface-secondary: var(--color-neutral-100);
+  --surface-secondary-glass: color-mix(in oklch, var(--color-neutral-100) 85%, transparent);
+  --surface-positive: var(--color-green-50);
+  --surface-negative: var(--color-red-50);
+  --surface-caution: var(--color-amber-50);
+  --surface-overlay: oklch(0 0 0 / 0.45);
+  --surface-inverted: var(--color-neutral-950);
+  /* Text roles */
+  --text-primary: var(--color-neutral-950);
+  --text-secondary: var(--color-neutral-700);
+  --text-muted: var(--color-neutral-500);
+  --text-disabled: var(--color-neutral-400);
+  --text-inverted: var(--color-neutral-50);
+  --text-positive: var(--color-green-950);
+  --text-negative: var(--color-red-950);
+  --text-caution: var(--color-amber-950);
+  /* Border roles */
+  --border-primary: var(--color-neutral-200);
+  --border-secondary: var(--color-neutral-300);
+  --border-muted: var(--color-neutral-200);
+  --border-subtle: var(--color-neutral-100);
+  --border-ring: var(--color-neutral-950);
+  /* Charts */
+  --chart-1: var(--color-neutral-600);
+  --chart-2: var(--color-neutral-500);
+  --chart-3: var(--color-neutral-400);
+  --chart-4: var(--color-neutral-300);
+  --chart-5: var(--color-neutral-200);
+}
+
+.dark {
+  color-scheme: dark;
+  /* Page and container surfaces */
+  --background: var(--color-neutral-950);
+  --background-glass: color-mix(in oklch, var(--color-neutral-950) 85%, transparent);
+  --surface-primary: var(--color-neutral-950);
+  --surface-primary-glass: color-mix(in oklch, var(--color-neutral-950) 85%, transparent);
+  --surface-secondary: var(--color-neutral-900);
+  --surface-secondary-glass: color-mix(in oklch, var(--color-neutral-900) 85%, transparent);
+  --surface-positive: var(--color-green-950);
+  --surface-negative: var(--color-red-950);
+  --surface-caution: var(--color-amber-950);
+  --surface-overlay: oklch(0 0 0 / 0.45);
+  --surface-inverted: var(--color-neutral-50);
+  /* Text roles */
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-300);
+  --text-muted: var(--color-neutral-400);
+  --text-disabled: var(--color-neutral-500);
+  --text-inverted: var(--color-neutral-950);
+  --text-positive: var(--color-green-500);
+  --text-negative: var(--color-red-500);
+  --text-caution: var(--color-amber-500);
+  /* Border roles */
+  --border-primary: var(--color-neutral-700);
+  --border-secondary: var(--color-neutral-600);
+  --border-muted: var(--color-neutral-800);
+  --border-subtle: var(--color-neutral-900);
+  --border-ring: var(--color-neutral-50);
+  /* Charts */
+  --chart-1: var(--color-neutral-600);
+  --chart-2: var(--color-neutral-500);
+  --chart-3: var(--color-neutral-400);
+  --chart-4: var(--color-neutral-300);
+  --chart-5: var(--color-neutral-200);
+}

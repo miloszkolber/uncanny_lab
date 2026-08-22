@@ -1,0 +1,59 @@
+/* -- Dialog component ------------------------------------------ */
+
+@layer components {
+  dialog.dialog {
+    border: var(--border-width-01) solid var(--border-primary);
+
+    background-color: var(--surface-primary-glass);
+    backdrop-filter: blur(var(--blur-01));
+    color: var(--text-primary);
+    padding: 0;
+    margin: auto;
+    position: fixed;
+    inset: 0;
+    max-width: 28rem;
+    width: calc(100vw - var(--size-07));
+    max-height: calc(100vh - var(--size-07));
+    /* -- Sizes ------------------------------------------------ */
+    /* -- Backdrop --------------------------------------------- */
+    &::backdrop {
+      background: oklch(0 0 0 / 0);
+      backdrop-filter: blur(0px);
+    }
+
+    &[open]::backdrop {
+      background:
+        linear-gradient(var(--surface-overlay), var(--surface-overlay)),
+        var(--surface-overlay);
+      backdrop-filter: blur(var(--blur-02));
+    }
+  }
+
+  /* -- Content sections ------------------------------------- */
+  .dialog-content { padding: var(--space-06); }
+  .dialog-header  { margin-bottom: var(--space-04); }
+  .dialog-title   { font-size: var(--font-h4); font-weight: var(--font-weight-strong); margin: 0 0 var(--space-02); letter-spacing: -0.01em; }
+  .dialog-description { font-size: var(--font-body-small); color: var(--text-muted); margin: 0; line-height: var(--font-height); }
+  .dialog-body    { margin-top: var(--space-04); }
+  .dialog-footer  { display: flex; justify-content: flex-end; gap: var(--space-02); margin-top: var(--space-06); }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (prefers-contrast: more) {
+    dialog.dialog {
+      border-width: var(--border-width-02);
+    }
+  }
+
+  @media (forced-colors: active) {
+    dialog.dialog {
+      background: Canvas;
+      color: CanvasText;
+      border: var(--border-width-02) solid CanvasText;
+      backdrop-filter: none;
+    }
+
+    &[open]::backdrop {
+      backdrop-filter: none;
+    }
+  }
+}

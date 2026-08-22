@@ -1,0 +1,39 @@
+/* -- Badge component ------------------------------------------- */
+
+@layer components {
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-01) var(--space-02);
+    font-size: var(--font-body-xsmall);
+    font-weight: var(--font-weight-strong);
+    line-height: var(--font-height-tight);
+
+    &[data-variant="outline"] {
+      border: var(--border-width-01) solid var(--border-primary);
+      color: var(--text-muted);
+    }
+
+    &[data-variant="secondary"] {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+    }
+
+    &[data-variant="default"] {
+      background: var(--surface-inverted);
+      color: var(--text-inverted);
+    }
+  }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (prefers-contrast: more) {
+    .badge[data-variant="outline"] { border-width: var(--border-width-02); }
+  }
+
+  @media (forced-colors: active) {
+    .badge { color: CanvasText; }
+    .badge[data-variant="outline"] { border-color: CanvasText; }
+    .badge[data-variant="secondary"] { background: Canvas; color: CanvasText; }
+    .badge[data-variant="default"] { background: Highlight; color: HighlightText; }
+  }
+}

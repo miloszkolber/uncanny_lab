@@ -1,0 +1,54 @@
+/* -- Label component -------------------------------------------- */
+
+@layer components {
+  .label {
+    font-size: var(--font-body-small);
+    font-weight: var(--font-weight-strong);
+    font-family: var(--font-sans);
+    line-height: var(--font-height-none);
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: var(--space-02);
+    cursor: default;
+
+    &[data-disabled] {
+      opacity: var(--opacity-07);
+      cursor: not-allowed;
+    }
+
+    &:has(+ :disabled),
+    &:has(+ [data-disabled]) {
+      opacity: var(--opacity-07);
+      cursor: not-allowed;
+    }
+  }
+
+  /* -- Hint text (optional, required indicators) ----------- */
+  .label-hint {
+    font-weight: var(--font-weight);
+    font-size: var(--font-body-small);
+    color: var(--text-muted);
+  }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (prefers-contrast: more) {
+    .label[data-disabled],
+    .label:has(+ :disabled),
+    .label:has(+ [data-disabled]) {
+      opacity: var(--opacity-09);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .label {
+      color: LinkText;
+    }
+
+    .label[data-disabled],
+    .label:has(+ :disabled),
+    .label:has(+ [data-disabled]) {
+      opacity: 1;
+      color: GrayText;
+    }
+  }
+}
