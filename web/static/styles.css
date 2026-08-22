@@ -252,6 +252,17 @@ main {
     border-top: var(--border-width-01) solid var(--border-muted);
 }
 
+.field-group-title {
+    margin: 0;
+    padding: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-body-xsmall);
+    font-weight: var(--font-weight-strong);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .field-group > summary {
     display: flex;
     align-items: center;
@@ -463,6 +474,13 @@ main {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-02);
+}
+
+.history-more {
+    grid-column: 1 / -1;
+    display: grid;
+    justify-items: center;
+    padding-block: var(--space-02) var(--space-04);
 }
 
 /* -- Models and system --------------------------------------------- */
