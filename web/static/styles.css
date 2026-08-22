@@ -22,6 +22,9 @@ body {
 
 /* -- App header ------------------------------------------------- */
 .app-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-raised);
     border-bottom: var(--border-width-01) solid var(--border-primary);
     background: var(--surface-primary);
 }
@@ -119,6 +122,12 @@ main {
 .page-heading:focus-visible,
 .panel-title:focus-visible {
     outline-offset: var(--space-01);
+}
+
+/* Programmatic focus targets for screen reader announcement after view
+   switches are not keyboard stops, so they do not need a visible ring. */
+.page-heading[tabindex="-1"]:focus {
+    outline: none;
 }
 
 .description {
@@ -692,6 +701,7 @@ dialog.dialog.dialog-scroll {
     max-width: 44rem;
     height: fit-content;
     max-height: min(90svh, 48rem);
+    overflow-y: auto;
 }
 
 /* -- Detail media dialog ---------------------------------------------- */
@@ -784,6 +794,20 @@ dialog.dialog.dialog-media {
 
     .bundle-details {
         grid-template-columns: 1fr;
+    }
+
+    /* The media dialog collapses to a single column so the artifact keeps a
+       usable width and the metadata stacks beneath it. */
+    .dialog-media-content {
+        grid-template-columns: 1fr;
+    }
+
+    .dialog-media-main {
+        min-height: var(--space-12);
+    }
+
+    .detail-info {
+        padding: var(--space-04);
     }
 }
 
