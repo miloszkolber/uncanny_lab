@@ -778,6 +778,8 @@ dialog.dialog.dialog-scroll {
 dialog.dialog.dialog-media {
     max-width: 64rem;
     width: calc(100vw - var(--size-09));
+    max-height: min(calc(100svh - var(--size-07)), 52rem);
+    overflow: hidden;
 }
 
 .dialog-media .dialog-content {
@@ -788,11 +790,14 @@ dialog.dialog.dialog-media {
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(14rem, 2fr);
     gap: var(--space-04);
+    min-height: 0;
+    max-height: min(calc(100svh - var(--size-07)), 52rem);
 }
 
 .dialog-media-main {
     min-width: 0;
     min-height: var(--size-14);
+    max-height: 100%;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     overflow: hidden;
@@ -805,6 +810,7 @@ dialog.dialog.dialog-media {
     display: grid;
     place-items: center;
     overflow: auto;
+    overscroll-behavior: contain;
     padding: var(--space-04);
 }
 
@@ -832,9 +838,12 @@ dialog.dialog.dialog-media {
 .detail-info {
     display: grid;
     align-content: start;
+    min-width: 0;
+    min-height: 0;
     gap: var(--space-04);
     padding: var(--space-06) var(--space-06) var(--space-06) 0;
     overflow: auto;
+    overscroll-behavior: contain;
 }
 
 .detail-info-top {
@@ -891,14 +900,28 @@ dialog.dialog.dialog-media {
        usable width and the metadata stacks beneath it. */
     .dialog-media-content {
         grid-template-columns: 1fr;
+        max-height: none;
+    }
+
+    dialog.dialog.dialog-media {
+        max-height: calc(100svh - var(--size-04));
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
 
     .dialog-media-main {
-        min-height: var(--space-12);
+        min-height: min(60vw, 18rem);
+        max-height: none;
+    }
+
+    .detail-image-toolbar {
+        flex-wrap: wrap;
     }
 
     .detail-info {
         padding: var(--space-04);
+        overflow: visible;
     }
 }
 

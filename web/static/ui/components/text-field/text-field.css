@@ -128,9 +128,7 @@
     opacity: var(--opacity-07);
   }
 
-  /* Size variants intentionally change type scale only. Single-line controls
-     keep the shared 2.5rem geometry, while textareas keep their own sizing. */
-      .text-field[data-orientation="horizontal"] {
+  .text-field[data-orientation="horizontal"] {
     flex-direction: row;
     align-items: center;
     gap: var(--space-02);
