@@ -84,6 +84,13 @@ body {
     border-bottom-color: var(--border-ring);
 }
 
+.route-nav kbd {
+    margin-inline-start: var(--space-01);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-body-xsmall);
+}
+
 main {
     width: 100%;
     max-width: 90rem;
@@ -334,6 +341,26 @@ fieldset.field-group {
     gap: var(--space-02);
 }
 
+.upload-dropzone {
+    border: var(--border-width-01) solid transparent;
+    padding: var(--space-02);
+}
+
+.upload-dropzone[data-drag-over="true"] {
+    border-color: var(--border-ring);
+    background: var(--surface-secondary);
+}
+
+.upload-dropzone:focus-within,
+.upload-dropzone:focus-visible {
+    outline: var(--focus-ring-width) solid var(--border-ring);
+    outline-offset: var(--space-01);
+}
+
+.upload-status {
+    min-height: 1lh;
+}
+
 .upload-preview {
     width: 100%;
     aspect-ratio: 1;
@@ -448,6 +475,18 @@ fieldset.field-group {
     gap: var(--space-04);
 }
 
+.history-toolbar {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-04);
+    margin-block-end: var(--space-04);
+}
+
+.history-toolbar .text-field {
+    min-width: min(100%, 16rem);
+}
+
 .history-grid[aria-busy="true"] {
     color: var(--text-muted);
 }
@@ -504,6 +543,16 @@ fieldset.field-group {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-02);
+}
+
+.card-actions .btn[data-variant="destructive"] {
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    border-color: var(--text-negative);
+}
+
+.card-actions .btn[data-variant="destructive"]:hover {
+    background: var(--surface-secondary);
 }
 
 .history-more {
@@ -745,17 +794,38 @@ dialog.dialog.dialog-media {
     min-width: 0;
     min-height: var(--size-14);
     display: grid;
-    place-items: center;
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow: hidden;
     background: var(--surface-secondary);
 }
 
-.dialog-media-main img {
+.detail-image-viewport {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: auto;
+    padding: var(--space-04);
+}
+
+.detail-image-viewport img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    transform-origin: center;
 }
 
-.dialog-media-main .empty-note {
+.detail-image-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-02);
+    padding: var(--space-02);
+    border-top: var(--border-width-01) solid var(--border-primary);
+    background: var(--surface-primary);
+}
+
+.detail-image-viewport .empty-note {
     padding-inline: var(--space-04);
 }
 
@@ -859,5 +929,10 @@ dialog.dialog.dialog-media {
 
     .action-row {
         flex-wrap: wrap;
+    }
+
+    .history-toolbar {
+        align-items: stretch;
+        flex-direction: column;
     }
 }

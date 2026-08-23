@@ -21,13 +21,14 @@
   <link rel="stylesheet" href="/ui/components/tabs/tabs.css">
   <link rel="stylesheet" href="/ui/components/collapsible/collapsible.css">
   <link rel="stylesheet" href="/ui/components/dialog/dialog.css">
+  <link rel="stylesheet" href="/ui/components/command-palette/command-palette.css">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
 <body class="app-shell">
   <header class="app-header"><div class="app-header-inner lab-header">
     <a class="brand" href="#generate" aria-label="Uncanny Lab home"><svg class="brand-logo" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Uncanny Lab</span></a>
-    <nav class="route-nav" aria-label="Primary navigation"><a class="route-link" href="#generate" data-view-link="generate">Generate</a><a class="route-link" href="#history" data-view-link="history">History</a><a class="route-link" href="#models" data-view-link="models">Models</a><a class="route-link" href="#system" data-view-link="system">System</a></nav>
+    <nav class="route-nav" aria-label="Primary navigation"><a class="route-link" href="#generate" data-view-link="generate">Generate</a><a class="route-link" href="#history" data-view-link="history">History</a><a class="route-link" href="#models" data-view-link="models">Models</a><a class="route-link" href="#system" data-view-link="system">System</a><button id="command-trigger" class="btn" data-variant="outline" data-size="sm" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">Commands <kbd>⌘K</kbd></button></nav>
   </div></header>
   <main>
     <section id="generate" class="view" aria-labelledby="generate-title">
@@ -45,14 +46,14 @@
         </section>
       </div>
     </section>
-    <section id="history" class="view" aria-labelledby="history-title" hidden><div class="page-overview"><div><p class="eyebrow">Artifact archive</p><h1 class="page-heading" id="history-title" tabindex="-1">History</h1><p class="description">Saved runs, configurations, and final artifacts.</p></div></div><div id="history-grid" class="history-grid"></div></section>
+    <section id="history" class="view" aria-labelledby="history-title" hidden><div class="page-overview"><div><p class="eyebrow">Artifact archive</p><h1 class="page-heading" id="history-title" tabindex="-1">History</h1><p class="description">Saved runs, configurations, and final artifacts.</p></div></div><div class="history-toolbar"><div class="text-field"><label class="text-field-label" for="history-status-filter">Filter by status</label><select id="history-status-filter" class="select"><option value="all">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div><p id="history-summary" class="meta-text" role="status" aria-live="polite"></p></div><div id="history-grid" class="history-grid"></div></section>
     <section id="models" class="view" aria-labelledby="models-title" hidden><div class="page-overview"><div><p class="eyebrow">Model inventory</p><h1 class="page-heading" id="models-title" tabindex="-1">Models</h1><p class="description">Verify registered models before generating.</p></div></div><section id="bundle-installer" class="bundle-installer card" aria-labelledby="bundle-installer-title"><div class="card-content"><h2 id="bundle-installer-title" class="panel-title">Install Bundle B</h2><p class="empty-note">Loading Bundle B installer details…</p></div></section><div id="models-error" class="field-error" role="alert" hidden></div><div id="models-list"></div></section>
     <section id="system" class="view" aria-labelledby="system-title" hidden><div class="page-overview"><div><p class="eyebrow">Runtime diagnostics</p><h1 class="page-heading" id="system-title" tabindex="-1">System</h1><p class="description">Runtime, accelerator, disk, and queue health.</p></div></div><div id="system-grid" class="diagnostic-grid"></div></section>
   </main>
   <dialog id="detail-dialog" class="dialog dialog-media" role="dialog" aria-labelledby="detail-title">
     <div class="dialog-content dialog-media-content">
-      <div class="dialog-media-main"><img id="detail-image" alt="Generated artifact" hidden><p id="detail-empty" class="empty-note">No image is available for this job.</p></div>
-      <aside class="detail-info"><div class="detail-info-top"><h2 id="detail-title" class="dialog-title">Job detail</h2><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close-dialog aria-label="Close detail"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div id="detail-meta" class="detail-meta"></div></aside>
+      <div class="dialog-media-main"><div id="detail-image-viewport" class="detail-image-viewport" tabindex="0" aria-label="Generated image viewport"><img id="detail-image" alt="Generated artifact" hidden><p id="detail-empty" class="empty-note">No image is available for this job.</p></div><div class="detail-image-toolbar" role="toolbar" aria-label="Image zoom"><button id="detail-zoom-out" class="btn" data-variant="outline" data-size="sm" type="button">Zoom out</button><button id="detail-zoom-reset" class="btn" data-variant="ghost" data-size="sm" type="button" aria-label="Reset image zoom">Reset</button><button id="detail-zoom-in" class="btn" data-variant="outline" data-size="sm" type="button">Zoom in</button><span id="detail-zoom-level" class="meta-text" role="status" aria-live="polite">100%</span></div></div>
+      <aside class="detail-info"><div class="detail-info-top"><h2 id="detail-title" class="dialog-title">Job detail</h2><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close-dialog aria-label="Close detail"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><dl id="detail-meta" class="detail-meta"></dl></aside>
     </div>
   </dialog>
   <dialog id="confirm-dialog" class="dialog" role="dialog" aria-labelledby="confirm-title" aria-busy="false">
@@ -70,6 +71,13 @@
       <label class="bundle-acknowledgement checkbox-item-block"><input id="installer-acknowledgement" class="checkbox" type="checkbox"><span>I have read and accept this policy for this installation.</span></label>
       <p id="installer-dialog-error" class="field-error" role="alert" hidden></p>
       <div class="dialog-footer"><button class="btn" data-variant="outline" type="button" data-close-dialog>Cancel</button><button id="installer-confirm" class="btn" data-variant="default" type="button" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m9 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Install Bundle B</button></div>
+    </div>
+  </dialog>
+  <dialog id="command-dialog" class="command-palette" role="dialog" aria-modal="true" aria-label="Command menu">
+    <div class="command-palette-content">
+      <div class="command-palette-input-wrapper"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="command-search" class="command-palette-input" type="search" aria-label="Command search" placeholder="Type a command or search…" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+      <div id="command-list" class="command-palette-list" role="listbox" aria-label="Commands"></div>
+      <p id="command-empty" class="command-palette-empty" hidden>No matching commands.</p>
     </div>
   </dialog>
   <div id="announcements" class="app-toast" role="status" aria-live="polite" aria-atomic="true"></div>

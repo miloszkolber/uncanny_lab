@@ -101,6 +101,13 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`id="confirm-progress"`,
 		`href="/favicon.svg"`,
 		`id="models-error"`,
+		`id="history-status-filter"`,
+		`id="history-summary"`,
+		`id="command-dialog"`,
+		`id="command-search"`,
+		`id="detail-zoom-in"`,
+		`id="detail-zoom-out"`,
+		`role="toolbar"`,
 		`data-close-dialog`,
 		`class="app-toast"`,
 		`aria-label="Generation progress"`,
@@ -109,6 +116,7 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`<dialog id="installer-dialog"`,
 		`/ui/src/base.css`,
 		`/ui/src/tokens.css`,
+		`/ui/components/command-palette/command-palette.css`,
 		`role="dialog"`,
 	} {
 		if !strings.Contains(index, expected) {
@@ -139,6 +147,10 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`.close()`,
 		`className = "btn"`,
 		`className = "badge"`,
+		`relativeFormatter`,
+		`dragOver`,
+		`command-palette-item`,
+		`setDetailZoom`,
 	} {
 		if !strings.Contains(appCode, expected) {
 			t.Errorf("frontend does not contain %q", expected)
