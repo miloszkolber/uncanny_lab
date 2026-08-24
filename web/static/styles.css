@@ -654,6 +654,16 @@ fieldset.field-group {
 }
 
 /* -- Bundle installer ----------------------------------------------- */
+.bundle-installer {
+    display: grid;
+    gap: var(--space-04);
+    padding: var(--space-06);
+}
+
+.bundle-installer > .card-content {
+    display: contents;
+}
+
 .bundle-summary,
 .bundle-status {
     margin: 0;
@@ -926,6 +936,10 @@ dialog.dialog.dialog-media {
 }
 
 @media (max-width: 37.5rem) {
+    .bundle-installer {
+        padding: var(--space-04);
+    }
+
     .app-header-inner,
     main {
         padding-inline: var(--space-04);
