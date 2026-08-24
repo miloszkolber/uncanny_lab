@@ -116,7 +116,7 @@ function setDetailZoom(value) { state.detailZoom = Math.min(3, Math.max(1, Math.
 const openDetailBase = openDetail;
 openDetail = function openDetailWithZoom(job) { openDetailBase(job); setDetailZoom(1); const hasImage = Boolean(job.final_path || job.preview_path); [el.zoomOut, el.zoomReset, el.zoomIn].forEach((control) => { control.disabled = !hasImage; }); };
 function restoreFocus() { if (state.opener?.isConnected) state.opener.focus(); else document.querySelector(".view:not([hidden]) .page-heading")?.focus(); }
-function showDialog(dialog) { dialog.showModal(); }
+function showDialog(dialog) { if (dialog === el.detail) el.detailViewport.tabIndex = el.detailImage.hidden ? -1 : 0; dialog.showModal(); }
 function setDeletePending(pending) { state.deletePending = pending; el.confirm.setAttribute("aria-busy", String(pending)); el.confirm.querySelectorAll("[data-close-dialog]").forEach((node) => { node.disabled = pending; }); el.confirmProgress.hidden = !pending; el.confirmProgress.tabIndex = pending ? 0 : -1; if (pending) el.confirmProgress.focus({ preventScroll: true }); }
 function closeDialog() { [el.detail, el.confirm].forEach((dialog) => { if (dialog.open) dialog.close(); }); }
 function askDelete(id) { state.deleteId = id; state.opener = document.activeElement; setError(el.confirmError); setDeletePending(false); showDialog(el.confirm); }

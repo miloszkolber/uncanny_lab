@@ -160,3 +160,28 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		t.Errorf("frontend creates %d event streams, want exactly 1 construction site", count)
 	}
 }
+
+func TestDetailImageViewportTabOrder(t *testing.T) {
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, index := getBody(t, handler, "/")
+	_, appCode := getBody(t, handler, "/app.js")
+
+	viewport := regexp.MustCompile(`<div id="detail-image-viewport"[^>]*>`).FindString(index)
+	if viewport == "" {
+		t.Fatal("detail image viewport is missing")
+	}
+	if strings.Contains(viewport, "tabindex=") {
+		t.Error("detail image viewport must not have a static tabindex")
+	}
+	tabOrderUpdate := strings.Index(appCode, "el.detailViewport.tabIndex = el.detailImage.hidden ? -1 : 0;")
+	dialogOpen := strings.Index(appCode, "dialog.showModal();")
+	if tabOrderUpdate < 0 {
+		t.Error("detail image viewport tab order is not synchronized with image availability")
+	}
+	if dialogOpen < 0 || tabOrderUpdate > dialogOpen {
+		t.Error("detail image viewport tab order must be synchronized before the dialog opens")
+	}
+}
