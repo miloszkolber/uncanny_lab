@@ -45,6 +45,7 @@ function makeHarness(hash) {
     },
   };
   const document = {
+    title: "",
     querySelectorAll(selector) {
       if (selector === ".view") return views;
       if (selector === "[data-view-link]") return links;
@@ -68,7 +69,7 @@ function makeHarness(hash) {
     loadInstaller: () => { calls.loadInstaller += 1; },
     loadSystem: () => { calls.loadSystem += 1; },
   };
-  return { calls, context, links, main, route: null, focusMainFromSkip: null, views };
+  return { calls, context, document, links, main, route: null, focusMainFromSkip: null, views };
 }
 
 function loadNavigationFunctions(harness) {
@@ -145,4 +146,43 @@ test("skip link preserves the system route and does not restart diagnostics", ()
     loadInstaller: 0,
     loadSystem: 0,
   });
+});
+
+test("route keeps the document title in sync with the view", () => {
+  const harness = makeHarness("#models");
+  loadNavigationFunctions(harness);
+
+  harness.route();
+  assert.equal(harness.document.title, "Uncanny Lab — Models");
+});
+
+test("command shortcut label matches the platform", () => {
+  const makeLabelHarness = (userAgent) => {
+    const label = { textContent: "" };
+    const context = {
+      document: {
+        querySelector(selector) {
+          return selector === "#command-trigger kbd" ? label : null;
+        },
+      },
+      navigator: { userAgent },
+    };
+    const sync = vm.runInNewContext(
+      `(${sourceLine("function syncCommandShortcutLabel")})`,
+      context,
+    );
+    return { label, sync };
+  };
+
+  const apple = makeLabelHarness(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+  );
+  apple.sync();
+  assert.equal(apple.label.textContent, "⌘K");
+
+  const windows = makeLabelHarness(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  );
+  windows.sync();
+  assert.equal(windows.label.textContent, "Ctrl K");
 });
