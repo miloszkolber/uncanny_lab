@@ -955,6 +955,10 @@ dialog.dialog.dialog-media {
 }
 
 @media (max-width: 37.5rem) {
+    .app-header {
+        position: static;
+    }
+
     .bundle-installer {
         padding: var(--space-04);
     }
