@@ -123,6 +123,7 @@ go test -race ./...
 go vet ./...
 python3 -m compileall -q python tools
 PYTHONPATH=python python3 -m unittest discover -s python/tests -v
+node --test web/navigation.test.mjs
 bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
 docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet

@@ -20,6 +20,24 @@ body {
     color: var(--text-primary);
 }
 
+.skip-link {
+    position: fixed;
+    inset-block-start: var(--space-03);
+    inset-inline-start: var(--space-03);
+    z-index: var(--z-toast);
+    padding: var(--space-02) var(--space-03);
+    background: var(--surface-inverted);
+    color: var(--text-inverted);
+    text-decoration: none;
+    translate: 0 -200%;
+}
+
+.skip-link:focus-visible {
+    translate: 0 0;
+    outline: var(--focus-ring-width) solid var(--border-ring);
+    outline-offset: var(--border-width-01);
+}
+
 /* -- App header ------------------------------------------------- */
 .app-header {
     position: sticky;
@@ -97,6 +115,7 @@ main {
     margin-inline: auto;
     padding: var(--space-06) var(--space-06) var(--space-09);
     flex: 1;
+    scroll-margin-block-start: var(--app-header-height);
 }
 
 .view {
@@ -971,5 +990,12 @@ dialog.dialog.dialog-media {
     .history-toolbar {
         align-items: stretch;
         flex-direction: column;
+    }
+}
+
+@media (forced-colors: active) {
+    .skip-link {
+        background: CanvasText;
+        color: Canvas;
     }
 }

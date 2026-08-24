@@ -46,6 +46,27 @@ func TestEmbeddedUIFoundations(t *testing.T) {
 	}
 }
 
+func TestEmbeddedUISkipLinkTarget(t *testing.T) {
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, index := getBody(t, handler, "/")
+	if code != http.StatusOK {
+		t.Fatalf("GET / status = %d", code)
+	}
+	if !strings.Contains(index, `<a class="skip-link" href="#main-content">Skip to main content</a>`) {
+		t.Fatal("embedded index is missing the static skip link")
+	}
+	if !strings.Contains(index, `<main id="main-content" tabindex="-1">`) {
+		t.Fatal("embedded index is missing the stable focusable main target")
+	}
+	_, appCode := getBody(t, handler, "/app.js")
+	if !strings.Contains(appCode, `document.querySelector(".skip-link")?.addEventListener("click", focusMainFromSkip)`) || !strings.Contains(appCode, `event.preventDefault(); document.querySelector("#main-content")?.focus();`) {
+		t.Fatal("skip-link handling must focus main without changing the route")
+	}
+}
+
 func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	handler, err := Handler()
 	if err != nil {
