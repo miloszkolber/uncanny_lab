@@ -9,7 +9,7 @@
     background: var(--background);
     font-size: var(--font-body-small);
     font-family: var(--font-sans);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     outline: none;
 
     padding: 0;
