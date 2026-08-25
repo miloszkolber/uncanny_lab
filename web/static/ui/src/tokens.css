@@ -16,7 +16,9 @@
   /* Text roles */
   --text-primary: var(--color-neutral-950);
   --text-secondary: var(--color-neutral-700);
-  --text-muted: var(--color-neutral-500);
+  /* Neutral 600 keeps muted text at 7:1 on the light surfaces it sits on;
+   * neutral 500 measured ~4.2:1 and failed WCAG 1.4.3 for body-size text. */
+  --text-muted: var(--color-neutral-600);
   --text-disabled: var(--color-neutral-400);
   --text-inverted: var(--color-neutral-50);
   --text-positive: var(--color-green-950);
