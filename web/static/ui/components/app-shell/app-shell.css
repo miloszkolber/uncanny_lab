@@ -29,6 +29,12 @@
   }
 
   /* -- Header ------------------------------------------------------ */
+  /* Anchor and focus scrolls must clear the sticky header. Consumers with
+     taller headers override --app-shell-header-offset. */
+  html:has(.app-header) {
+    scroll-padding-block-start: calc(var(--app-shell-header-offset, var(--size-10)) + var(--space-03));
+  }
+
   .app-header {
     position: sticky;
     inset-block-start: 0;
