@@ -1,13 +1,25 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
   <title>Uncanny Lab</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/ui/src/base.css">
   <link rel="stylesheet" href="/ui/src/tokens.css">
+  <script>
+    (function () {
+      var stored = null;
+      try {
+        stored = localStorage.getItem('mewa-ui-theme') || localStorage.getItem('mewa-theme');
+      } catch (error) {}
+      var theme = stored === 'light' || stored === 'dark'
+        ? stored
+        : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    }());
+  </script>
+  <link rel="stylesheet" href="/ui/components/app-shell/app-shell.css">
   <link rel="stylesheet" href="/ui/components/label/label.css">
   <link rel="stylesheet" href="/ui/components/text-field/text-field.css">
   <link rel="stylesheet" href="/ui/components/select/select.css">
@@ -23,7 +35,6 @@
   <link rel="stylesheet" href="/ui/components/dialog/dialog.css">
   <link rel="stylesheet" href="/ui/components/command-palette/command-palette.css">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
 </head>
 <body class="app-shell">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -31,6 +42,7 @@
   <header class="app-header"><div class="app-header-inner lab-header">
     <a class="brand" href="#generate" aria-label="Uncanny Lab home"><svg class="brand-logo" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Uncanny Lab</span></a>
     <nav class="route-nav" aria-label="Primary navigation"><a class="route-link" href="#generate" data-view-link="generate">Generate</a><a class="route-link" href="#history" data-view-link="history">History</a><a class="route-link" href="#models" data-view-link="models">Models</a><a class="route-link" href="#system" data-view-link="system">System</a><button id="command-trigger" class="btn" data-variant="outline" data-size="sm" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">Commands <kbd>Ctrl K</kbd></button></nav>
+    <div class="app-header-actions"><button class="btn" data-variant="outline" data-size="sm" type="button" data-theme-toggle>Theme</button></div>
   </div></header>
   <main id="main-content" tabindex="-1">
     <section id="generate" class="view" aria-labelledby="generate-title">
@@ -40,7 +52,7 @@
           <div class="tabs panel-tabs">
             <div class="tab-list" role="tablist" aria-label="Generation type"><button class="tab-trigger" type="button" role="tab" id="text-tab" aria-controls="text-panel" aria-selected="true" data-mode="text-to-image">Text to image</button><button class="tab-trigger" type="button" role="tab" id="image-tab" aria-controls="image-panel" aria-selected="false" data-mode="image-to-image" tabindex="-1">Image to image</button></div>
           </div>
-          <div class="controls-body"><p id="engine-status" class="sr-only" role="status" aria-live="polite"></p><div id="text-panel" role="tabpanel" aria-labelledby="text-tab" tabindex="0"><div id="engine-fields" class="field-list"><p class="loading-note" role="status">Loading engines…</p></div></div><div id="image-panel" role="tabpanel" aria-labelledby="image-tab" tabindex="0" hidden><p class="empty-note">Select an image-to-image engine to configure it.</p></div><div id="form-error" class="field-error" role="alert" hidden></div><div class="form-actions"><button id="reset-form" class="btn" data-variant="outline" type="button">Reset</button><button id="submit-job" class="btn" data-variant="default" type="submit" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg>Generate</button></div></div>
+          <div class="controls-body"><p id="engine-status" class="visually-hidden" role="status" aria-live="polite"></p><div id="text-panel" class="tab-content" role="tabpanel" aria-labelledby="text-tab" tabindex="0"><div id="engine-fields" class="field-list"><p class="loading-note" role="status">Loading engines…</p></div></div><div id="image-panel" class="tab-content" role="tabpanel" aria-labelledby="image-tab" tabindex="0" hidden><p class="empty-note">Select an image-to-image engine to configure it.</p></div><div id="form-error" class="field-error" role="alert" hidden></div><div class="form-actions"><button id="reset-form" class="btn" data-variant="outline" type="button">Reset</button><button id="submit-job" class="btn" data-variant="default" type="submit" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg>Generate</button></div></div>
         </form>
         <section class="panel stage-panel" aria-labelledby="stage-title">
           <div class="panel-header"><div><p class="eyebrow">Current job</p><h2 class="panel-title" id="stage-title">Preview timeline</h2></div><div class="stage-header-actions"><button id="unpin-preview" class="btn" data-variant="ghost" data-size="icon" type="button" title="Unpin preview" aria-label="Unpin preview" hidden><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5m3-12.66V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89M2 2l20 20M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11"/></svg></button><span id="job-status" class="badge" data-state="running" role="status" aria-live="polite">Idle</span></div></div>
@@ -77,11 +89,13 @@
   </dialog>
   <dialog id="command-dialog" class="command-palette" role="dialog" aria-modal="true" aria-label="Command menu">
     <div class="command-palette-content">
-      <div class="command-palette-input-wrapper"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="command-search" class="command-palette-input" type="search" aria-label="Command search" placeholder="Type a command or search…" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+      <div class="command-palette-input-wrapper"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="command-search" class="command-palette-input" type="search" role="combobox" aria-expanded="true" aria-controls="command-list" aria-autocomplete="list" aria-label="Command search" placeholder="Type a command or search…" autocomplete="off" autocorrect="off" spellcheck="false"></div>
       <div id="command-list" class="command-palette-list" role="listbox" aria-label="Commands"></div>
       <p id="command-empty" class="command-palette-empty" hidden>No matching commands.</p>
     </div>
   </dialog>
   <div id="announcements" class="app-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <script src="/app.js" defer></script>
+  <script type="module" src="/ui/components/app-shell/app-shell.js"></script>
 </body>
 </html>

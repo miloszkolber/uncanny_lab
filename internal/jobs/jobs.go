@@ -27,7 +27,9 @@ type Job struct {
 	Engine           string          `json:"engine"`
 	Status           Status          `json:"status"`
 	Parameters       json.RawMessage `json:"parameters"`
-	Seed             int64           `json:"seed"`
+	// Seed uses a string JSON encoding so the full int64 range survives
+	// JavaScript's 2^53 safe-integer limit on display.
+	Seed             int64           `json:"seed,string"`
 	ProgressStep     int             `json:"progress_step"`
 	ProgressTotal    int             `json:"progress_total"`
 	PreviewPath      string          `json:"preview_path,omitempty"`

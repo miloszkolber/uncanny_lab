@@ -55,7 +55,7 @@
     font-weight: var(--font-weight-strong);
     border: var(--border-width-01) solid transparent;
     background: transparent;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
     outline: none;

@@ -23,11 +23,38 @@
       background: var(--surface-inverted);
       color: var(--text-inverted);
     }
+
+    /* Semantic status is separate from visual emphasis. Keep the visible
+       label descriptive because color is supplementary. */
+    &[data-state="positive"] {
+      background: var(--surface-positive);
+      color: var(--text-positive);
+      border: var(--border-width-01) solid var(--text-positive);
+    }
+
+    &[data-state="caution"] {
+      background: var(--surface-caution);
+      color: var(--text-caution);
+      border: var(--border-width-01) solid var(--text-caution);
+    }
+
+    &[data-state="negative"] {
+      background: var(--surface-negative);
+      color: var(--text-negative);
+      border: var(--border-width-01) solid var(--text-negative);
+    }
+
+    &[data-state="running"] {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: var(--border-width-01) solid var(--border-secondary);
+    }
   }
 
   /* -- Accessibility ---------------------------------------- */
   @media (prefers-contrast: more) {
-    .badge[data-variant="outline"] { border-width: var(--border-width-02); }
+    .badge[data-variant="outline"],
+    .badge[data-state] { border-width: var(--border-width-02); }
   }
 
   @media (forced-colors: active) {
@@ -35,5 +62,6 @@
     .badge[data-variant="outline"] { border-color: CanvasText; }
     .badge[data-variant="secondary"] { background: Canvas; color: CanvasText; }
     .badge[data-variant="default"] { background: Highlight; color: HighlightText; }
+    .badge[data-state] { background: Canvas; color: CanvasText; border-color: CanvasText; }
   }
 }
