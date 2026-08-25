@@ -1,0 +1,470 @@
+/* -- App shell component ---------------------------------------- */
+
+@layer components {
+  /* -- Page frame ------------------------------------------------ */
+  /* Put `.app-shell` on the <body> element. <main> grows to fill the
+     viewport so short pages keep the footer at the bottom. */
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 100dvh;
+    background: var(--background);
+    color: var(--text-primary);
+  }
+
+  .app-shell > main {
+    flex: 1;
+    min-inline-size: 0;
+    scroll-margin-block-start: var(--app-shell-header-offset, var(--size-10));
+  }
+
+  /* Shared container math for shell regions. `--app-shell-max` picks the
+     canvas preset: 64rem for single tools, 90rem for dense data surfaces. */
+  .app-header-inner,
+  .app-toolbar-inner,
+  .page-overview,
+  .app-content {
+    inline-size: min(100% - var(--space-08), var(--app-shell-max, 90rem));
+    margin-inline: auto;
+  }
+
+  /* -- Header ------------------------------------------------------ */
+  .app-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--z-raised);
+    background: var(--background);
+    border-block-end: var(--border-width-01) solid var(--border-primary);
+  }
+
+  .app-header-inner {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-02) var(--space-05);
+    padding-block: var(--space-02);
+  }
+
+  /* -- Brand ------------------------------------------------------- */
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-02);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-strong);
+    text-decoration: none;
+  }
+
+  .brand:hover {
+    color: var(--text-primary);
+  }
+
+  .brand:focus-visible {
+    outline: var(--focus-ring-width) solid var(--border-ring);
+    outline-offset: var(--border-width-01);
+  }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--size-07);
+    block-size: var(--size-07);
+    flex: none;
+    background: var(--surface-inverted);
+    color: var(--text-inverted);
+    font-size: var(--font-body-small);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .brand-logo {
+    inline-size: var(--size-06);
+    block-size: var(--size-06);
+  }
+
+  /* -- Header navigation ------------------------------------------- */
+  .app-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-01);
+    min-inline-size: 0;
+  }
+
+  .app-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--size-07);
+    padding: var(--space-01) var(--space-03);
+    color: var(--text-muted);
+    font-size: var(--font-body-small);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .app-nav a:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+  }
+
+  .app-nav a[aria-current="page"] {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .app-nav a:focus-visible {
+    outline: var(--focus-ring-width) solid var(--border-ring);
+    outline-offset: var(--border-width-01);
+  }
+
+  /* Button-based header navigation keeps the button component styling and
+     only adds the current-page treatment. */
+  .app-nav .btn[aria-current="page"] {
+    background: var(--surface-secondary);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+  }
+
+  .app-header-actions,
+  .app-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-02);
+    margin-inline-start: auto;
+  }
+
+  /* -- Toolbar ----------------------------------------------------- */
+  /* Second-level bar for breadcrumbs and page actions. Sticky on its own;
+     pair it with the sidebar shell rather than stacking it under a header. */
+  .app-toolbar {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--z-raised);
+    background: var(--background);
+    border-block-end: var(--border-width-01) solid var(--border-primary);
+  }
+
+  .app-toolbar-inner {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-02) var(--space-04);
+    padding-block: var(--space-02);
+  }
+
+  /* -- Edge accent --------------------------------------------------- */
+  /* Optional decorative hatch pinned to the viewport's inline end. The
+     pattern is a flat hard-stop stripe in a border role. It ignores
+     pointer input and introduces no motion. */
+  .app-shell-edge::after {
+    content: "";
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: var(--space-03);
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--border-secondary) 0 var(--border-width-02),
+      transparent var(--border-width-02) var(--space-02)
+    );
+  }
+
+  /* -- Page overview ------------------------------------------------ */
+  .page-overview {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-04) var(--space-05);
+    padding-block: var(--space-06) var(--space-05);
+  }
+
+  .eyebrow {
+    margin: 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-body-xsmall);
+    font-weight: var(--font-weight-strong);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .page-heading {
+    margin: var(--space-01) 0 0;
+    font-size: var(--font-h2);
+    line-height: var(--font-height-tight);
+    text-wrap: balance;
+  }
+
+  .page-description {
+    margin: var(--space-02) 0 0;
+    max-inline-size: 62ch;
+    color: var(--text-secondary);
+    text-wrap: pretty;
+  }
+
+  .page-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-02);
+    justify-content: flex-end;
+  }
+
+  /* -- Inline stats strip ------------------------------------------- */
+  .stats {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-01) var(--space-02);
+    margin: 0;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-value {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-separator {
+    color: var(--text-disabled);
+  }
+
+  .stat-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-02);
+  }
+
+  /* -- Status primitives --------------------------------------------- */
+  /* Meaningful circles only. The dot is a filled marker; the icon is a
+     tinted circle carrying a glyph. Both take `data-state`. */
+  .status-dot {
+    display: inline-block;
+    inline-size: var(--size-02);
+    block-size: var(--size-02);
+    border-radius: var(--radius-full);
+    background: var(--text-disabled);
+    vertical-align: middle;
+  }
+
+  .status-dot[data-state="positive"] { background: var(--text-positive); }
+  .status-dot[data-state="caution"] { background: var(--text-caution); }
+  .status-dot[data-state="negative"] { background: var(--text-negative); }
+
+  .status-dot[data-state="running"] {
+    background: transparent;
+    border: var(--border-width-02) solid var(--text-muted);
+  }
+
+  .status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--size-05);
+    block-size: var(--size-05);
+    flex: none;
+    border-radius: var(--radius-full);
+    background: var(--surface-secondary);
+    color: var(--text-secondary);
+  }
+
+  .status-icon > svg {
+    inline-size: var(--size-03);
+    block-size: var(--size-03);
+  }
+
+  .status-icon[data-state="positive"] {
+    background: var(--surface-positive);
+    color: var(--text-positive);
+  }
+
+  .status-icon[data-state="caution"] {
+    background: var(--surface-caution);
+    color: var(--text-caution);
+  }
+
+  .status-icon[data-state="negative"] {
+    background: var(--surface-negative);
+    color: var(--text-negative);
+  }
+
+  .status-icon[data-state="running"] {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    border: var(--border-width-01) solid var(--border-secondary);
+  }
+
+  /* -- Compact status list ------------------------------------------ */
+  /* Rows stay dense and border-separated. Use the existing status marker
+     primitives as the first column rather than nesting rows in cards. */
+  .app-status-list {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .app-status-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--space-03);
+    padding: var(--space-04);
+    border-block-end: var(--border-width-01) solid var(--border-primary);
+  }
+
+  .app-status-row:last-child {
+    border-block-end: 0;
+  }
+
+  .app-status-copy {
+    min-inline-size: 0;
+  }
+
+  .app-status-title {
+    margin: 0;
+    font-weight: var(--font-weight-strong);
+  }
+
+  .app-status-description {
+    margin: var(--space-01) 0 0;
+    color: var(--text-muted);
+    font-size: var(--font-body-small);
+  }
+
+  .app-status-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-02);
+  }
+
+  /* -- Empty state ---------------------------------------------------- */
+  .app-empty {
+    margin: 0;
+    padding: var(--space-09) var(--space-04);
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* -- Utilities ------------------------------------------------------- */
+  .skip-link {
+    position: fixed;
+    inset-block-start: var(--space-03);
+    inset-inline-start: var(--space-03);
+    z-index: var(--z-toast);
+    padding: var(--space-02) var(--space-03);
+    background: var(--surface-inverted);
+    color: var(--text-inverted);
+    text-decoration: none;
+    translate: 0 -200%;
+  }
+
+  .skip-link:focus-visible {
+    translate: 0 0;
+    outline: var(--focus-ring-width) solid var(--border-ring);
+    outline-offset: var(--border-width-01);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Keep the optional enhancement control out of the keyboard path when its
+     module is unavailable. The module sets `data-init` before it binds. */
+  [data-theme-toggle]:not([data-init]) {
+    display: none;
+  }
+
+  /* -- Accessibility ---------------------------------------------------- */
+  @media (prefers-contrast: more) {
+    .app-header,
+    .app-toolbar {
+      border-block-end-width: var(--border-width-02);
+    }
+
+    .status-dot[data-state="running"] {
+      border-color: var(--text-primary);
+    }
+
+    .status-icon[data-state="running"] {
+      border-width: var(--border-width-02);
+    }
+
+    .app-status-row {
+      border-width: var(--border-width-02);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .skip-link {
+      background: Highlight;
+      color: HighlightText;
+    }
+
+    .brand-mark {
+      background: CanvasText;
+      color: Canvas;
+    }
+
+    .status-dot {
+      background: CanvasText;
+    }
+
+    .status-dot[data-state="running"] {
+      background: Canvas;
+      border-color: CanvasText;
+    }
+
+    .status-icon {
+      border: var(--border-width-01) solid CanvasText;
+    }
+
+    .app-shell-edge::after {
+      background: none;
+      border-inline-end: var(--border-width-02) solid CanvasText;
+    }
+
+    .app-status-row {
+      border-color: CanvasText;
+    }
+  }
+
+  /* -- Narrow viewports -------------------------------------------------- */
+  @media (max-width: 37.5rem) {
+    .app-header-inner,
+    .app-toolbar-inner,
+    .page-overview,
+    .app-content {
+      inline-size: 100%;
+      padding-inline: var(--space-04);
+    }
+
+    .app-status-row {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .app-status-actions {
+      grid-column: 2;
+      justify-content: flex-start;
+    }
+  }
+}
