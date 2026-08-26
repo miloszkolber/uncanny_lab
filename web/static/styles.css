@@ -1,205 +1,60 @@
 /* Uncanny Lab application styles
  * Loaded after the vendored mewa_ui foundations and component stylesheets.
  * This file owns application layout only. Colors, typography, geometry, and
- * component surfaces come from /ui/src/base.css, /ui/src/tokens.css, and the
- * component stylesheets. Square geometry, border-led elevation, no motion.
+ * component surfaces and interaction feedback come from /ui/library/src/base.css,
+ * /ui/library/src/tokens.css, and the component stylesheets.
  */
-:root {
-    --app-header-height: var(--size-12);
-}
-
-html,
-body {
-    min-height: 100%;
-}
-
-body {
-    display: flex;
-    flex-direction: column;
-    background: var(--background);
-    color: var(--text-primary);
-}
-
-/* -- App header ------------------------------------------------- */
-.app-header {
-    position: sticky;
-    top: 0;
-    z-index: var(--z-raised);
-    border-bottom: var(--border-width-01) solid var(--border-primary);
-    background: var(--surface-primary);
-}
-
-.app-header-inner {
-    min-height: var(--app-header-height);
-    margin-inline: auto;
-    padding-inline: var(--space-06);
-    max-width: 90rem;
-}
-
-.lab-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-04);
-}
-
-.brand {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-02);
-    color: var(--text-primary);
-    font-weight: var(--font-weight-strong);
-    text-decoration: none;
-}
-
-.brand-logo {
-    width: var(--size-05);
-    height: var(--size-05);
-}
-
-.route-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-01);
-}
-
-.route-link {
-    display: inline-flex;
-    align-items: center;
-    height: var(--size-08);
-    padding-inline: var(--space-03);
-    color: var(--text-secondary);
-    text-decoration: none;
-    border-bottom: var(--border-width-02) solid transparent;
-}
-
-.route-link:hover {
-    color: var(--text-primary);
-    background: var(--surface-secondary);
-}
-
-.route-link[aria-current="page"] {
-    color: var(--text-primary);
-    font-weight: var(--font-weight-strong);
-    border-bottom-color: var(--border-ring);
-}
-
-.route-nav kbd {
-    margin-inline-start: var(--space-01);
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
-}
-
-main {
-    width: 100%;
-    max-width: 90rem;
-    margin-inline: auto;
-    padding: var(--space-06) var(--space-06) var(--space-09);
-    flex: 1;
-    scroll-margin-block-start: var(--app-header-height);
+.app-shell {
+    --app-shell-max: var(--breakpoint-max-dense);
 }
 
 .view {
     min-width: 0;
 }
 
-/* -- Page overview ---------------------------------------------- */
-.page-overview {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: var(--space-04);
-    padding-block: var(--space-05) var(--space-06);
-}
-
-.eyebrow {
-    margin: 0;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.page-heading {
-    margin: var(--space-01) 0 0;
-    font-size: var(--font-h3);
-}
-
-.page-heading:focus-visible,
-.panel-title:focus-visible {
-    outline-offset: var(--space-01);
-}
-
-/* Programmatic focus targets for screen reader announcement after view
-   switches are not keyboard stops, so they do not need a visible ring. */
+/* Programmatic route headings are not keyboard stops. */
 .page-heading[tabindex="-1"]:focus {
     outline: none;
 }
 
-.description {
-    margin: var(--space-02) 0 0;
-    max-width: 60ch;
-    color: var(--text-secondary);
-}
-
 .meta-text {
     color: var(--text-muted);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     font-variant-numeric: tabular-nums;
 }
 
 .panel-title {
     margin: 0;
-    font-size: var(--font-h4);
-    font-weight: var(--font-weight-strong);
+    font-size: var(--font-size-400);
+    font-weight: var(--font-weight-550);
 }
 
 /* -- Status badges ---------------------------------------------- */
 /* Badges use the shared `data-state` vocabulary from badge.css
    (positive, caution, negative, running); no local overrides. */
 
-/* Status colors on cards */
-.card.job-card[data-state="positive"],
-.card.model-card[data-state="positive"] {
-    border-color: var(--text-positive);
-}
-
-.card.job-card[data-state="caution"],
-.card.model-card[data-state="caution"],
-.card.diagnostic-card[data-state="caution"] {
-    border-color: var(--text-caution);
-}
-
-.card.job-card[data-state="negative"],
-.card.model-card[data-state="negative"],
-.card.diagnostic-card[data-state="negative"] {
-    border-color: var(--text-negative);
-}
-
 /* -- Workspace split -------------------------------------------- */
 .workspace-split {
     display: grid;
-    gap: var(--border-width-01);
-    border: var(--border-width-01) solid var(--border-primary);
+    gap: var(--border-width-025);
+    border: var(--border-width-025) solid var(--border-primary);
     background: var(--border-primary);
 }
 
 .workspace-split > .panel {
-    padding: var(--space-06);
+    padding: var(--space-600);
     background: var(--surface-primary);
 }
 
 .generate-workspace {
     grid-template-columns: minmax(24rem, 2fr) minmax(28rem, 3fr);
-    min-height: calc(100svh - var(--app-header-height) - var(--size-13));
+    min-height: calc(100svh - var(--app-shell-header-offset, var(--size-1600)) - var(--size-2400));
 }
 
 .panel {
     display: grid;
     align-content: start;
-    gap: var(--space-04);
+    gap: var(--space-400);
     min-width: 0;
 }
 
@@ -207,20 +62,20 @@ main {
     display: flex;
     align-items: start;
     justify-content: space-between;
-    gap: var(--space-03);
+    gap: var(--space-300);
 }
 
 .stage-header-actions {
     display: flex;
     align-items: center;
-    gap: var(--space-02);
+    gap: var(--space-200);
 }
 
 .controls-body,
 .stage-body,
 .field-list {
     display: grid;
-    gap: var(--space-04);
+    gap: var(--space-400);
     align-content: start;
 }
 
@@ -233,7 +88,7 @@ main {
 .field-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-03);
+    gap: var(--space-300);
 }
 
 .field-grid .field-wide {
@@ -241,8 +96,8 @@ main {
 }
 
 .field-group + .field-group {
-    padding-top: var(--space-04);
-    border-top: var(--border-width-01) solid var(--border-muted);
+    padding-top: var(--space-400);
+    border-top: var(--border-width-025) solid var(--border-muted);
 }
 
 /* Parameter groups: the Basic fieldset loses its browser default frame so all
@@ -259,8 +114,8 @@ fieldset.field-group {
     padding: 0;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
-    font-weight: var(--font-weight-strong);
+    font-size: var(--font-size-300);
+    font-weight: var(--font-weight-550);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -269,13 +124,13 @@ fieldset.field-group {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-03);
-    padding-block: var(--space-02);
+    gap: var(--space-300);
+    padding-block: var(--space-200);
     cursor: pointer;
     list-style: none;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -286,7 +141,7 @@ fieldset.field-group {
 
 .field-group > summary::after {
     content: "+";
-    font-size: var(--font-body-small);
+    font-size: var(--font-size-350);
     color: var(--text-muted);
 }
 
@@ -296,30 +151,30 @@ fieldset.field-group {
 
 .engine-description {
     max-width: 60ch;
-    margin: calc(-1 * var(--space-02)) 0 0;
+    margin: calc(-1 * var(--space-200)) 0 0;
     color: var(--text-secondary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .upload-box {
     display: grid;
-    gap: var(--space-02);
+    gap: var(--space-200);
 }
 
 .upload-dropzone {
-    border: var(--border-width-01) solid transparent;
-    padding: var(--space-02);
+    border: var(--border-width-025) solid transparent;
+    padding: var(--space-200);
 }
 
 .upload-dropzone[data-drag-over="true"] {
-    border-color: var(--border-ring);
+    border-color: var(--border-focus);
     background: var(--surface-secondary);
 }
 
 .upload-dropzone:focus-within,
 .upload-dropzone:focus-visible {
-    outline: var(--focus-ring-width) solid var(--border-ring);
-    outline-offset: var(--space-01);
+    outline: var(--focus-ring-width) solid var(--border-focus);
+    outline-offset: var(--space-100);
 }
 
 .upload-status {
@@ -330,29 +185,35 @@ fieldset.field-group {
     width: 100%;
     aspect-ratio: 1;
     object-fit: cover;
-    border: var(--border-width-01) solid var(--border-primary);
+    border: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-secondary);
+}
+
+/* Keep the native file control readable when the component disables pointer
+   events on the field frame and exposes only its picker button. */
+.file-input {
+    opacity: var(--opacity-10);
 }
 
 .form-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-03);
-    margin-top: var(--space-04);
+    gap: var(--space-300);
+    margin-top: var(--space-400);
 }
 
 .field-error {
     margin: 0;
     color: var(--text-negative);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .empty-note,
 .loading-note {
     margin: 0;
-    padding-block: var(--space-03);
+    padding-block: var(--space-300);
     color: var(--text-muted);
-    font-size: var(--font-body-small);
+    font-size: var(--font-size-350);
 }
 
 .empty-note a {
@@ -362,9 +223,9 @@ fieldset.field-group {
 .error-state {
     display: grid;
     justify-items: start;
-    gap: var(--space-02);
-    padding: var(--space-04);
-    border: var(--border-width-01) solid var(--text-negative);
+    gap: var(--space-200);
+    padding: var(--space-400);
+    border: var(--border-width-025) solid var(--border-negative);
     background: var(--surface-secondary);
 }
 
@@ -380,11 +241,11 @@ fieldset.field-group {
 }
 
 .preview-wrap {
-    min-height: var(--space-15);
+    min-height: var(--space-3200);
     display: grid;
     place-items: center;
     overflow: hidden;
-    border: var(--border-width-01) solid var(--border-primary);
+    border: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-secondary);
 }
 
@@ -398,7 +259,7 @@ fieldset.field-group {
 .action-row {
     display: flex;
     align-items: center;
-    gap: var(--space-03);
+    gap: var(--space-300);
 }
 
 .progress-copy .progress {
@@ -407,24 +268,24 @@ fieldset.field-group {
 
 .timeline {
     display: flex;
-    gap: var(--space-02);
+    gap: var(--space-200);
     overflow-x: auto;
 }
 
 .timeline-item {
-    width: var(--size-08);
-    height: var(--size-08);
+    width: var(--size-1000);
+    height: var(--size-1000);
     flex: 0 0 auto;
     padding: 0;
     overflow: hidden;
-    border: var(--border-width-01) solid var(--border-primary);
+    border: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-secondary);
     color: var(--text-muted);
     cursor: pointer;
 }
 
 .timeline-item[aria-pressed="true"] {
-    border: var(--border-width-02) solid var(--border-ring);
+    border: var(--border-width-050) solid var(--border-focus);
 }
 
 .timeline-item img {
@@ -437,15 +298,15 @@ fieldset.field-group {
 .history-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-    gap: var(--space-04);
+    gap: var(--space-400);
 }
 
 .history-toolbar {
     display: flex;
     align-items: end;
     justify-content: space-between;
-    gap: var(--space-04);
-    margin-block-end: var(--space-04);
+    gap: var(--space-400);
+    margin-block-end: var(--space-400);
 }
 
 .history-toolbar .text-field {
@@ -464,14 +325,14 @@ fieldset.field-group {
     aspect-ratio: 1;
     display: grid;
     place-items: center;
-    border-bottom: var(--border-width-01) solid var(--border-muted);
+    border-bottom: var(--border-width-025) solid var(--border-muted);
     background: var(--surface-secondary);
     color: var(--text-muted);
 }
 
 .job-thumb svg {
-    width: var(--size-06);
-    height: var(--size-06);
+    width: var(--size-600);
+    height: var(--size-600);
 }
 
 .job-thumb img {
@@ -482,21 +343,20 @@ fieldset.field-group {
 
 .job-card-body {
     display: grid;
-    gap: var(--space-03);
-    padding: var(--space-04);
+    gap: var(--space-300);
 }
 
 .card-top {
     display: flex;
     align-items: start;
     justify-content: space-between;
-    gap: var(--space-02);
+    gap: var(--space-200);
 }
 
 .card-prompt {
     margin: 0;
     color: var(--text-secondary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -507,41 +367,52 @@ fieldset.field-group {
 .card-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-02);
-}
-
-.card-actions .btn[data-variant="destructive"] {
-    background: var(--surface-primary);
-    color: var(--text-primary);
-    border-color: var(--text-negative);
-}
-
-.card-actions .btn[data-variant="destructive"]:hover {
-    background: var(--surface-secondary);
+    gap: var(--space-200);
 }
 
 .history-more {
     grid-column: 1 / -1;
     display: grid;
     justify-items: center;
-    padding-block: var(--space-02) var(--space-04);
+    padding-block: var(--space-200) var(--space-400);
 }
 
 /* -- Models and system --------------------------------------------- */
 .family-title {
-    margin: var(--space-06) 0 var(--space-03);
+    margin: var(--space-600) 0 var(--space-300);
 }
 
 .model-family,
 .diagnostic-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-    gap: var(--space-04);
+    gap: var(--space-400);
 }
 
-.model-card,
+.model-card .card-content {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-200);
+}
+
+.model-card .card-content > strong {
+    flex: 1 1 8rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.model-card .card-content > .badge {
+    flex: 0 0 auto;
+}
+
+.model-card .card-content > .btn {
+    margin-inline-start: auto;
+}
+
 .diagnostic-card {
-    gap: var(--space-02);
+    display: grid;
+    gap: var(--space-200);
 }
 
 .compatibility-card {
@@ -550,30 +421,30 @@ fieldset.field-group {
 
 .probe-detail {
     margin: 0;
-    padding: var(--space-02);
+    padding: var(--space-200);
     max-height: 12rem;
     overflow: auto;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     background: var(--surface-secondary);
-    border: var(--border-width-01) solid var(--border-muted);
+    border: var(--border-width-025) solid var(--border-muted);
 }
 
 /* dl-based cards and detail meta */
 .detail-meta {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-02) var(--space-03);
+    gap: var(--space-200) var(--space-300);
 }
 
 .detail-meta dt,
 .diagnostic-card dt {
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .detail-meta dd,
@@ -585,7 +456,7 @@ fieldset.field-group {
 
 .detail-parameters {
     display: grid;
-    gap: var(--space-02);
+    gap: var(--space-200);
     grid-column: 1 / -1;
 }
 
@@ -593,7 +464,7 @@ fieldset.field-group {
     cursor: pointer;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -601,32 +472,31 @@ fieldset.field-group {
 .detail-parameter-list {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-01) var(--space-03);
+    gap: var(--space-100) var(--space-300);
     margin: 0;
 }
 
 .detail-parameter-list dt {
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .detail-parameter-list dd {
     margin: 0;
     color: var(--text-secondary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     overflow-wrap: anywhere;
 }
 
 /* -- Bundle installer ----------------------------------------------- */
 .bundle-installer {
-    display: grid;
-    gap: var(--space-04);
-    padding: var(--space-06);
+    margin-block-end: var(--space-400);
 }
 
-.bundle-installer > .card-content {
-    display: contents;
+.bundle-installer .app-section-content {
+    display: grid;
+    gap: var(--space-400);
 }
 
 .bundle-summary,
@@ -641,9 +511,9 @@ fieldset.field-group {
 
 .bundle-policy {
     display: grid;
-    gap: var(--space-02);
-    padding: var(--space-03);
-    border-left: var(--border-width-02) solid var(--border-secondary);
+    gap: var(--space-200);
+    padding: var(--space-300);
+    border-left: var(--border-width-050) solid var(--border-secondary);
     background: var(--surface-secondary);
 }
 
@@ -656,22 +526,22 @@ fieldset.field-group {
 .bundle-details {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-04);
+    gap: var(--space-400);
 }
 
 .bundle-details section {
     min-width: 0;
     display: grid;
     align-content: start;
-    gap: var(--space-02);
+    gap: var(--space-200);
 }
 
 .bundle-details h3 {
     margin: 0;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--font-body-xsmall);
-    font-weight: var(--font-weight-strong);
+    font-size: var(--font-size-300);
+    font-weight: var(--font-weight-550);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -679,15 +549,15 @@ fieldset.field-group {
 .bundle-details p {
     margin: 0;
     color: var(--text-muted);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .bundle-source {
     display: grid;
-    gap: var(--space-01);
+    gap: var(--space-100);
     min-width: 0;
     color: var(--text-primary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
     overflow-wrap: anywhere;
 }
 
@@ -699,22 +569,22 @@ fieldset.field-group {
 .bundle-link {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-01);
+    gap: var(--space-100);
     width: fit-content;
     color: var(--text-primary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .bundle-link svg {
-    width: var(--space-03);
-    height: var(--space-03);
+    width: var(--space-300);
+    height: var(--space-300);
 }
 
 .bundle-detail-row {
     display: grid;
-    gap: var(--space-01);
+    gap: var(--space-100);
     color: var(--text-secondary);
-    font-size: var(--font-body-xsmall);
+    font-size: var(--font-size-300);
 }
 
 .bundle-detail-row span:last-child {
@@ -724,7 +594,7 @@ fieldset.field-group {
 .bundle-actions {
     display: grid;
     justify-items: start;
-    gap: var(--space-02);
+    gap: var(--space-200);
 }
 
 .bundle-actions .progress {
@@ -739,7 +609,7 @@ fieldset.field-group {
 
 #installer-dialog .dialog-content {
     display: grid;
-    gap: var(--space-04);
+    gap: var(--space-400);
 }
 
 dialog.dialog.dialog-scroll {
@@ -752,8 +622,8 @@ dialog.dialog.dialog-scroll {
 /* -- Detail media dialog ---------------------------------------------- */
 dialog.dialog.dialog-media {
     max-width: 64rem;
-    width: calc(100vw - var(--size-09));
-    max-height: min(calc(100svh - var(--size-07)), 52rem);
+    width: calc(100vw - var(--size-1200));
+    max-height: min(calc(100svh - var(--size-800)), 52rem);
     overflow: hidden;
 }
 
@@ -764,14 +634,14 @@ dialog.dialog.dialog-media {
 .dialog-media-content {
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(14rem, 2fr);
-    gap: var(--space-04);
+    gap: var(--space-400);
     min-height: 0;
-    max-height: min(calc(100svh - var(--size-07)), 52rem);
+    max-height: min(calc(100svh - var(--size-800)), 52rem);
 }
 
 .dialog-media-main {
     min-width: 0;
-    min-height: var(--size-14);
+    min-height: var(--size-2800);
     max-height: 100%;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
@@ -786,7 +656,7 @@ dialog.dialog.dialog-media {
     place-items: center;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: var(--space-04);
+    padding: var(--space-400);
 }
 
 .detail-image-viewport img {
@@ -800,14 +670,14 @@ dialog.dialog.dialog-media {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-02);
-    padding: var(--space-02);
-    border-top: var(--border-width-01) solid var(--border-primary);
+    gap: var(--space-200);
+    padding: var(--space-200);
+    border-top: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-primary);
 }
 
 .detail-image-viewport .empty-note {
-    padding-inline: var(--space-04);
+    padding-inline: var(--space-400);
 }
 
 .detail-info {
@@ -815,8 +685,8 @@ dialog.dialog.dialog-media {
     align-content: start;
     min-width: 0;
     min-height: 0;
-    gap: var(--space-04);
-    padding: var(--space-06) var(--space-06) var(--space-06) 0;
+    gap: var(--space-400);
+    padding: var(--space-600) var(--space-600) var(--space-600) 0;
     overflow: auto;
     overscroll-behavior: contain;
 }
@@ -825,27 +695,77 @@ dialog.dialog.dialog-media {
     display: flex;
     align-items: start;
     justify-content: space-between;
-    gap: var(--space-03);
+    gap: var(--space-300);
 }
 
 /* -- Toast ------------------------------------------------------------ */
 .app-toast {
     position: fixed;
-    inset-block-end: var(--space-04);
+    inset-block-end: var(--space-400);
     inset-inline-start: 50%;
     translate: -50% 0;
     z-index: var(--z-toast);
     max-width: min(90vw, 36rem);
-    padding: var(--space-03) var(--space-04);
+    padding: var(--space-300) var(--space-400);
     visibility: hidden;
     background: var(--surface-inverted);
     color: var(--text-inverted);
-    border: var(--border-width-01) solid var(--border-primary);
-    font-size: var(--font-body-small);
+    border: var(--border-width-025) solid var(--border-primary);
+    font-size: var(--font-size-350);
 }
 
 .app-toast.is-visible {
     visibility: visible;
+}
+
+
+/* -- High contrast and forced colors ----------------------------------- */
+@media (prefers-contrast: more) {
+    .workspace-split,
+    .preview-wrap,
+    .timeline-item,
+    .bundle-policy,
+    .upload-dropzone {
+        border-width: var(--border-width-050);
+    }
+}
+
+@media (forced-colors: active) {
+    .workspace-split {
+        border-color: CanvasText;
+        background: CanvasText;
+    }
+
+    .workspace-split > .panel {
+        background: Canvas;
+    }
+
+    .preview-wrap {
+        border-color: CanvasText;
+    }
+
+    .timeline-item {
+        border-color: CanvasText;
+    }
+
+    .timeline-item[aria-pressed="true"] {
+        border-color: Highlight;
+    }
+
+    .upload-dropzone[data-drag-over="true"] {
+        border-color: Highlight;
+        background: Canvas;
+    }
+
+    .bundle-policy {
+        border-left-color: CanvasText;
+        background: Canvas;
+    }
+
+
+    .app-toast {
+        border-color: CanvasText;
+    }
 }
 
 /* -- Responsive -------------------------------------------------------- */
@@ -856,7 +776,7 @@ dialog.dialog.dialog-media {
     }
 
     .stage-panel {
-        min-height: var(--space-15);
+        min-height: var(--space-3200);
     }
 
     .stage-body {
@@ -864,7 +784,7 @@ dialog.dialog.dialog-media {
     }
 
     .preview-wrap {
-        min-height: var(--space-13);
+        min-height: var(--space-2400);
     }
 
     .bundle-details {
@@ -879,7 +799,7 @@ dialog.dialog.dialog-media {
     }
 
     dialog.dialog.dialog-media {
-        max-height: calc(100svh - var(--size-04));
+        max-height: calc(100svh - var(--size-400));
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -895,39 +815,12 @@ dialog.dialog.dialog-media {
     }
 
     .detail-info {
-        padding: var(--space-04);
+        padding: var(--space-400);
         overflow: visible;
     }
 }
 
 @media (max-width: 37.5rem) {
-    .app-header {
-        position: static;
-    }
-
-    .bundle-installer {
-        padding: var(--space-04);
-    }
-
-    .app-header-inner,
-    main {
-        padding-inline: var(--space-04);
-    }
-
-    .lab-header {
-        align-items: start;
-        flex-direction: column;
-        padding-block: var(--space-02);
-    }
-
-    .route-nav {
-        flex-wrap: wrap;
-    }
-
-    .page-overview {
-        align-items: start;
-        flex-direction: column;
-    }
 
     .field-grid {
         grid-template-columns: 1fr;

@@ -1,0 +1,110 @@
+@layer components {
+  dialog.alert-dialog {
+    border: var(--border-width-025) solid var(--border-secondary);
+
+    background: var(--background);
+    color: var(--text-primary);
+    padding: 0;
+    max-width: 28rem;
+    width: calc(100% - var(--size-800));
+
+    margin: auto;
+    position: fixed;
+    inset: 0;
+    opacity: 0;
+    transform: translateY(var(--space-100)) scale(0.99);
+    transition-property: opacity, transform, overlay, display;
+    transition-duration: var(--motion-duration-spatial);
+    transition-timing-function: var(--motion-easing-standard);
+    transition-behavior: normal, normal, allow-discrete, allow-discrete;
+
+    &[open] {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    &::backdrop {
+      /* Layer the semantic scrim to keep modal content distinct in both themes. */
+      background:
+        linear-gradient(var(--overlay-strong), var(--overlay-strong)),
+        var(--overlay-strong);
+      backdrop-filter: blur(var(--blur-200));
+      opacity: 0;
+      pointer-events: auto;
+      transition-property: opacity, overlay, display;
+      transition-duration: var(--motion-duration-spatial);
+      transition-timing-function: var(--motion-easing-standard);
+      transition-behavior: normal, allow-discrete, allow-discrete;
+    }
+
+    &[open]::backdrop {
+      opacity: 1;
+    }
+  }
+
+  @starting-style {
+    dialog.alert-dialog[open] {
+      opacity: 0;
+      transform: translateY(var(--space-100)) scale(0.99);
+    }
+
+    dialog.alert-dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  .alert-dialog-content {
+    padding: var(--space-600);
+  }
+
+  .alert-dialog-header {
+    margin-bottom: var(--space-500);
+  }
+
+  .alert-dialog-title {
+    margin: 0;
+    font-size: var(--font-size-400);
+    font-weight: var(--font-weight-550);
+    letter-spacing: -0.01em;
+    line-height: var(--font-height-tight);
+  }
+
+  .alert-dialog-description {
+    margin: var(--space-200) 0 0;
+    font-size: var(--font-size-350);
+    color: var(--text-muted);
+    line-height: var(--font-height-regular);
+  }
+
+  .alert-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-200);
+  }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (prefers-contrast: more) {
+    dialog.alert-dialog {
+      border-width: var(--border-width-050);
+    }
+  }
+
+  @media (forced-colors: active) {
+    dialog.alert-dialog {
+      background: Canvas;
+      color: CanvasText;
+      border: var(--border-width-050) solid CanvasText;
+    }
+
+    &::backdrop {
+      backdrop-filter: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    dialog.alert-dialog,
+    dialog.alert-dialog::backdrop {
+      transition-duration: 0ms;
+    }
+  }
+}

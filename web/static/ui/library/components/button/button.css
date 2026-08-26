@@ -1,0 +1,161 @@
+/* -- Button component ------------------------------------------ */
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-200);
+    white-space: nowrap;
+    font-size: var(--font-size-350);
+    font-weight: var(--font-weight-550);
+    font-family: var(--font-sans);
+    line-height: var(--font-height-flat);
+
+    border: var(--border-width-025) solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    outline: none;
+    flex-shrink: 0;
+    height: var(--size-1000);
+    padding: 0 var(--space-300);
+    background-color: var(--surface-inverted);
+    color: var(--text-inverted);
+
+    & svg {
+      pointer-events: none;
+      flex-shrink: 0;
+
+      &:not([class*="size-"]) { width: var(--size-400); height: var(--size-400); }
+    }
+
+    /* A spinner inside a button follows the button's own text color. */
+    & .spinner {
+      color: inherit;
+    }
+
+    &:focus-visible {
+      outline: var(--focus-ring-width) solid var(--border-focus);
+      outline-offset: var(--border-width-025);
+    }
+
+    &:disabled, &[aria-disabled="true"] {
+      pointer-events: none;
+      opacity: var(--opacity-05);
+    }
+
+    /* -- Variants -------------------------------------------- */
+    &[data-variant="default"] {
+      background-color: var(--surface-inverted);
+      color: var(--text-inverted);
+
+      &:hover {
+        background-color: color-mix(in oklch, var(--surface-inverted) 88%, var(--background));
+      }
+    }
+
+    &[data-variant="secondary"] {
+      /* Equal to the outline button's border so the secondary tone reads
+         as a filled version of the outline fit. */
+      background-color: var(--border-primary);
+      color: var(--text-primary);
+
+      &:hover {
+        background-color: color-mix(in oklch, var(--border-primary) 88%, var(--text-primary));
+      }
+    }
+
+    &[data-variant="outline"] {
+      background-color: var(--background);
+      color: var(--text-primary);
+      border: var(--border-width-025) solid var(--border-primary);
+
+
+      &:hover {
+        background-color: var(--surface-secondary);
+        color: var(--text-primary);
+      }
+    }
+
+    &[data-variant="ghost"] {
+      background-color: transparent;
+      color: var(--text-primary);
+      border-color: transparent;
+
+      &:hover {
+        background-color: var(--surface-secondary);
+        color: var(--text-primary);
+      }
+    }
+
+    &[data-variant="destructive"] {
+      /* 400 scale on dark themes, 600 scale on light themes. The fill
+         carries the action; the text stays inverted (white or black). */
+      background-color: var(--surface-destructive);
+      color: var(--text-inverted);
+
+      &:hover {
+        background-color: color-mix(in oklch, var(--surface-destructive) 88%, var(--background));
+      }
+    }
+
+    &[data-variant="destructive-outline"] {
+      /* Non-final destructive option that opens its own confirmation.
+         The filled destructive variant stays reserved for that final
+         confirmation. */
+      background-color: var(--background);
+      color: var(--text-negative);
+      border: var(--border-width-025) solid var(--text-negative);
+
+      &:hover {
+        background-color: var(--surface-negative);
+        color: var(--text-negative);
+      }
+    }
+
+    &[data-variant="link"] {
+      background-color: transparent;
+      color: var(--text-primary);
+      height: auto;
+      padding: 0;
+      text-underline-offset: var(--size-100);
+
+      &:hover { text-decoration: underline; }
+    }
+
+    /* -- Sizes ----------------------------------------------- */
+    &[data-size="sm"]      { height: var(--size-800);    padding: 0 var(--space-300); font-size: var(--font-size-350); }
+    &[data-size="icon"]    { height: var(--size-1000); width: var(--size-1000); padding: 0; }
+    &[data-size="icon-sm"] { height: var(--size-800);    width: var(--size-800);     padding: 0; }
+  }
+
+  /* -- Accessibility ------------------------------------------ */
+  @media (prefers-contrast: more) {
+    .btn {
+      border: var(--border-width-050) solid transparent;
+
+      &[data-variant="default"],
+      &[data-variant="secondary"],
+      &[data-variant="destructive"],
+      &[data-variant="destructive-outline"] {
+        border-color: currentColor;
+      }
+
+      &[data-variant="outline"],
+      &[data-variant="ghost"] {
+        border-color: var(--text-primary);
+      }
+    }
+  }
+
+  @media (forced-colors: active) {
+    .btn {
+      border: var(--border-width-025) solid ButtonText;
+
+      &:disabled, &[aria-disabled="true"] {
+        border-color: GrayText;
+        color: GrayText;
+      }
+    }
+  }
+}

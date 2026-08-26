@@ -1,0 +1,126 @@
+/* mewa_ui — semantic color roles */
+:root {
+  color-scheme: light;
+
+  /* Page and container surfaces */
+  --background: var(--color-neutral-000);
+  --background-glass: color-mix(in oklch, var(--color-neutral-000) 85%, transparent);
+  --surface-primary: var(--color-neutral-000);
+  --surface-primary-glass: color-mix(in oklch, var(--color-neutral-000) 85%, transparent);
+  --surface-secondary: var(--color-neutral-050);
+  --surface-secondary-glass: color-mix(in oklch, var(--color-neutral-050) 85%, transparent);
+  --surface-hover: var(--color-alpha-neutral-050);
+  --surface-selected: var(--color-alpha-neutral-100);
+  --surface-disabled: var(--color-alpha-neutral-200);
+  --surface-positive: var(--color-alpha-green-050);
+  --surface-negative: var(--color-alpha-red-050);
+  --surface-caution: var(--color-alpha-amber-050);
+  --surface-inverted: var(--color-neutral-950);
+  --surface-destructive: var(--color-red-600);
+
+  /* Overlays */
+  --overlay-subtle: var(--color-alpha-neutral-050);
+  --overlay-moderate: var(--color-alpha-neutral-200);
+  --overlay-strong: oklch(18.22% 0 0 / 0.45);
+
+  /* Text roles */
+  --text-primary: var(--color-neutral-950);
+  --text-secondary: var(--color-neutral-700);
+  --text-muted: var(--color-neutral-600);
+  --text-disabled: var(--color-neutral-400);
+  --text-inverted: var(--color-neutral-000);
+  --text-positive: var(--color-green-600);
+  --text-negative: var(--color-red-600);
+  --text-caution: var(--color-amber-600);
+
+  /* Border roles */
+  --border-primary: var(--color-neutral-200);
+  --border-secondary: var(--color-neutral-300);
+  --border-muted: var(--color-alpha-neutral-200);
+  --border-subtle: var(--color-alpha-neutral-100);
+  --border-hover: var(--color-neutral-300);
+  --border-selected: var(--color-neutral-600);
+  --border-disabled: var(--color-alpha-neutral-100);
+  --border-focus: var(--color-neutral-600);
+  --border-positive: var(--color-green-600);
+  --border-negative: var(--color-red-600);
+  --border-caution: var(--color-amber-600);
+
+  /* Charts */
+  --chart-1: var(--color-neutral-600);
+  --chart-2: var(--color-neutral-500);
+  --chart-3: var(--color-neutral-400);
+  --chart-4: var(--color-neutral-300);
+  --chart-5: var(--color-neutral-200);
+  --chart-neutral: var(--color-neutral-600);
+  --chart-positive: var(--color-green-600);
+  --chart-negative: var(--color-red-600);
+  --chart-caution: var(--color-amber-600);
+  --chart-area-neutral: var(--color-alpha-neutral-050);
+  --chart-area-positive: var(--color-alpha-green-050);
+  --chart-area-negative: var(--color-alpha-red-050);
+  --chart-area-caution: var(--color-alpha-amber-050);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Page and container surfaces */
+  --background: var(--color-neutral-950);
+  --background-glass: color-mix(in oklch, var(--color-neutral-950) 85%, transparent);
+  --surface-primary: var(--color-neutral-950);
+  --surface-primary-glass: color-mix(in oklch, var(--color-neutral-950) 85%, transparent);
+  --surface-secondary: var(--color-neutral-900);
+  --surface-secondary-glass: color-mix(in oklch, var(--color-neutral-900) 85%, transparent);
+  --surface-hover: var(--color-alpha-neutral-950);
+  --surface-selected: var(--color-alpha-neutral-900);
+  --surface-disabled: var(--color-alpha-neutral-800);
+  --surface-positive: var(--color-alpha-green-950);
+  --surface-negative: var(--color-alpha-red-950);
+  --surface-caution: var(--color-alpha-amber-950);
+  --surface-inverted: var(--color-neutral-000);
+  --surface-destructive: var(--color-red-400);
+
+  /* Overlays */
+  --overlay-subtle: var(--color-alpha-neutral-950);
+  --overlay-moderate: var(--color-alpha-neutral-800);
+  --overlay-strong: oklch(18.22% 0 0 / 0.45);
+
+  /* Text roles */
+  --text-primary: var(--color-neutral-050);
+  --text-secondary: var(--color-neutral-300);
+  --text-muted: var(--color-neutral-400);
+  --text-disabled: var(--color-neutral-500);
+  --text-inverted: var(--color-neutral-950);
+  --text-positive: var(--color-green-400);
+  --text-negative: var(--color-red-400);
+  --text-caution: var(--color-amber-400);
+
+  /* Border roles */
+  --border-primary: var(--color-neutral-800);
+  --border-secondary: var(--color-neutral-700);
+  --border-muted: var(--color-alpha-neutral-800);
+  --border-subtle: var(--color-alpha-neutral-900);
+  --border-hover: var(--color-neutral-700);
+  --border-selected: var(--color-neutral-400);
+  --border-disabled: var(--color-alpha-neutral-900);
+  --border-focus: var(--color-neutral-400);
+  --border-positive: var(--color-green-400);
+  --border-negative: var(--color-red-400);
+  --border-caution: var(--color-amber-400);
+
+  /* Charts */
+  --chart-1: var(--color-neutral-400);
+  --chart-2: var(--color-neutral-500);
+  --chart-3: var(--color-neutral-600);
+  --chart-4: var(--color-neutral-700);
+  --chart-5: var(--color-neutral-800);
+  --chart-neutral: var(--color-neutral-400);
+  --chart-positive: var(--color-green-400);
+  --chart-negative: var(--color-red-400);
+  --chart-caution: var(--color-amber-400);
+  --chart-area-neutral: var(--color-alpha-neutral-950);
+  --chart-area-positive: var(--color-alpha-green-950);
+  --chart-area-negative: var(--color-alpha-red-950);
+  --chart-area-caution: var(--color-alpha-amber-950);
+}

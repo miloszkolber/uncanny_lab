@@ -28,8 +28,8 @@ func TestEmbeddedUIFoundations(t *testing.T) {
 	}
 	for path, expected := range map[string]string{
 		"/styles.css":        "/* Uncanny Lab application styles",
-		"/ui/src/base.css":   "mewa_ui",
-		"/ui/src/tokens.css": ".dark",
+		"/ui/library/src/base.css":   "mewa_ui",
+		"/ui/library/src/tokens.css": ".dark",
 		"/favicon.svg":       `<svg xmlns="http://www.w3.org/2000/svg"`,
 	} {
 		code, body := getBody(t, handler, path)
@@ -98,7 +98,7 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	iconPattern := regexp.MustCompile(`icon\("([a-z-]+)"`)
 	for _, source := range []string{index, appCode} {
 		for _, match := range iconPattern.FindAllStringSubmatch(source, -1) {
-			path := "/ui/src/icons/" + match[1] + ".svg"
+			path := "/ui/library/src/icons/" + match[1] + ".svg"
 			code, icon := getBody(t, handler, path)
 			if code != http.StatusOK {
 				t.Errorf("GET %s status = %d", path, code)
@@ -128,17 +128,26 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`id="command-search"`,
 		`id="detail-zoom-in"`,
 		`id="detail-zoom-out"`,
-		`role="toolbar"`,
-		`data-close-dialog`,
+		`role="group"`,
+		`data-dialog-close`,
+		`data-alert-dialog-close`,
 		`class="app-toast"`,
 		`aria-label="Generation progress"`,
 		`<dialog id="detail-dialog"`,
 		`<dialog id="confirm-dialog"`,
 		`<dialog id="installer-dialog"`,
-		`/ui/src/base.css`,
-		`/ui/src/tokens.css`,
-		`/ui/components/command-palette/command-palette.css`,
-		`role="dialog"`,
+		`/ui/library/src/base.css`,
+		`/ui/library/src/tokens.css`,
+		`/ui/library/components/command-palette/command-palette.css`,
+		`/ui/library/components/alert-dialog/alert-dialog.js`,
+		`/ui/library/components/command-palette/command-palette.js`,
+		`/ui/library/components/dialog/dialog.js`,
+		`/ui/library/components/tabs/tabs.js`,
+		`class="app-nav"`,
+		`class="page-description"`,
+		`class="app-content"`,
+		`class="alert-dialog"`,
+		`command-palette-item`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Errorf("index does not contain %q", expected)
@@ -164,13 +173,16 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`compatibility-card`,
 		`state.jobStatusKey`,
 		`confirmError`,
-		`showModal()`,
-		`.close()`,
+		`dataset.alertDialogTrigger`,
+		`dataset.dialogTrigger`,
+		`tabs:activate`,
+		`commandActions`,
+		`commandDialog._trigger`,
+		`destructive-outline`,
 		`className = "btn"`,
 		`className = "badge"`,
 		`relativeFormatter`,
 		`dragOver`,
-		`command-palette-item`,
 		`setDetailZoom`,
 	} {
 		if !strings.Contains(appCode, expected) {
@@ -197,12 +209,11 @@ func TestDetailImageViewportTabOrder(t *testing.T) {
 	if strings.Contains(viewport, "tabindex=") {
 		t.Error("detail image viewport must not have a static tabindex")
 	}
-	tabOrderUpdate := strings.Index(appCode, "el.detailViewport.tabIndex = el.detailImage.hidden ? -1 : 0;")
-	dialogOpen := strings.Index(appCode, "dialog.showModal();")
+	tabOrderUpdate := strings.Index(appCode, "el.detailViewport.tabIndex = image.hidden ? -1 : 0;")
 	if tabOrderUpdate < 0 {
 		t.Error("detail image viewport tab order is not synchronized with image availability")
 	}
-	if dialogOpen < 0 || tabOrderUpdate > dialogOpen {
-		t.Error("detail image viewport tab order must be synchronized before the dialog opens")
+	if !strings.Contains(appCode, `open.dataset.dialogTrigger = "detail-dialog"`) {
+		t.Error("detail action must use the vendored Dialog trigger contract")
 	}
 }

@@ -1,0 +1,91 @@
+/* -- File Input component --------------------------------------- */
+
+@layer components {
+  .file-input {
+    width: 100%;
+    height: var(--size-1000);
+    border: var(--border-width-025) solid var(--border-secondary);
+
+    background: var(--background);
+    font-size: var(--font-size-350);
+    font-family: var(--font-sans);
+    color: var(--text-secondary);
+    outline: none;
+
+    padding: 0;
+    cursor: default;
+    pointer-events: none;
+
+    &::file-selector-button {
+      height: 100%;
+      border: none;
+      border-inline-end: var(--border-width-025) solid var(--border-secondary);
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      font-size: var(--font-size-350);
+      font-weight: var(--font-weight-550);
+      font-family: var(--font-sans);
+      padding: 0 var(--space-300);
+      margin-inline-end: var(--space-300);
+      cursor: pointer;
+      pointer-events: auto;
+      &:hover { background: color-mix(in oklch, var(--surface-secondary) 80%, var(--text-primary)); }
+    }
+
+    /* Only the picker button is interactive; the field frame never
+       highlights as a whole. */
+    &:focus {
+      border-color: var(--border-secondary);
+      outline: none;
+    }
+
+    &:is([aria-invalid="true"], :user-invalid) {
+      border-color: var(--text-negative);
+    }
+
+    &:disabled {
+      background: var(--surface-secondary);
+      color: var(--text-disabled);
+      border-color: var(--border-muted);
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: none;
+
+      &::file-selector-button {
+        outline: var(--focus-ring-width) solid var(--border-focus);
+        outline-offset: calc(-1 * var(--focus-ring-width));
+        position: relative;
+        z-index: var(--z-raised);
+      }
+    }
+  }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (prefers-contrast: more) {
+    .file-input { border-width: var(--border-width-050); }
+  }
+
+  @media (forced-colors: active) {
+    .file-input {
+      border-color: ButtonBorder;
+      background: Field;
+      color: FieldText;
+    }
+
+    .file-input::file-selector-button {
+      background: ButtonFace;
+      color: ButtonText;
+      border-color: ButtonText;
+    }
+
+    .file-input:focus-visible {
+      outline: none;
+
+      &::file-selector-button {
+        outline: var(--border-width-050) solid Highlight;
+      }
+    }
+  }
+}

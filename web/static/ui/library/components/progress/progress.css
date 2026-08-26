@@ -1,0 +1,36 @@
+@layer components {
+  .progress {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 100%;
+    height: var(--size-200);
+    border: none;
+    border-radius: var(--border-radius-000);
+    overflow: hidden;
+    background-color: var(--surface-secondary);
+  }
+
+  .progress::-webkit-progress-bar {
+    background-color: var(--surface-secondary);
+    border-radius: var(--border-radius-000);
+  }
+
+  .progress::-webkit-progress-value {
+    background-color: var(--surface-inverted);
+    border-radius: var(--border-radius-000);
+  }
+
+  .progress::-moz-progress-bar {
+    background-color: var(--surface-inverted);
+    border-radius: var(--border-radius-000);
+  }
+
+  /* -- Accessibility ---------------------------------------- */
+  @media (forced-colors: active) {
+    .progress { border: var(--border-width-025) solid ButtonText; }
+    .progress::-webkit-progress-bar { background: ButtonFace; }
+    .progress::-webkit-progress-value { background: Highlight; }
+    .progress::-moz-progress-bar { background: Highlight; }
+  }
+}

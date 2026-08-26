@@ -1,0 +1,47 @@
+/* -- Select component ------------------------------------------- */
+
+@layer components {
+  .select {
+    appearance: none;
+    height: var(--size-1000);
+    width: 100%;
+    border: var(--border-width-025) solid var(--border-secondary);
+
+    background-color: var(--background);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-300) center;
+    padding: 0 var(--space-1000) 0 var(--space-300);
+    font-size: var(--font-size-350);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    outline: none;
+
+    cursor: pointer;
+    &:focus {
+      border-color: var(--border-focus);
+      outline: var(--border-width-025) solid var(--border-focus);
+      outline-offset: 0;
+    }
+
+    &:disabled {
+      background: var(--surface-secondary);
+      color: var(--text-disabled);
+      border-color: var(--border-muted);
+      opacity: 1;
+      cursor: not-allowed;
+    }
+
+    &:is([aria-invalid="true"], :user-invalid) {
+      border-color: var(--text-negative);
+
+      &:focus {
+        border-color: var(--text-negative);
+        outline: var(--border-width-025) solid var(--text-negative);
+        outline-offset: 0;
+      }
+    }
+
+    /* -- Sizes ----------------------------------------------- */
+  }
+}
