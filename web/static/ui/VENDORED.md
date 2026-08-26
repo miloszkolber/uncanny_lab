@@ -1,6 +1,6 @@
 # Vendored mewa_ui assets
 
-This directory vendors the subset of [mewa_ui](https://github.com/miloszkolber/ui_library) that the embedded Uncanny Lab browser UI consumes. mewa_ui is MIT licensed; see `THIRD_PARTY_NOTICES` at the repository root for attribution.
+This directory vendors the subset of [mewa_ui](https://github.com/miloszkolber/mewa_ui) that the embedded Uncanny Lab browser UI consumes. mewa_ui is MIT licensed; see `THIRD_PARTY_NOTICES` at the repository root for attribution.
 
 - Source commit: `4d7bdb6` (feat: add tabs:activate programmatic activation event)
 - Foundations: `src/base.css`, `src/tokens.css`, Geist font files, and only the Lucide icon files the UI inlines.

@@ -100,7 +100,7 @@ func TestCheckpointDownloadsDefaultFalseAndStrictEnvironment(t *testing.T) {
 
 func TestLoadRejectsUnknownFields(t *testing.T) {
 	for name, content := range map[string]string{
-		"obsolete UI library": "paths:\n  ui_library: /ui-library\n",
+		"obsolete UI library": "paths:\n  mewa_ui: /mewa-ui\n",
 		"server typo":         "server:\n  adress: 127.0.0.1\n",
 	} {
 		t.Run(name, func(t *testing.T) {
