@@ -355,12 +355,102 @@
     gap: var(--space-02);
   }
 
+  /* -- Section canvas ------------------------------------------------- */
+  /* Use `.app-section` for a bordered full-width section that holds dense
+     rows (tables, status lists, or custom row grids). It replaces the
+     common but visually heavy `card > table` nesting. Put the border on the
+     section, not on each row. */
+  .app-section {
+    background: var(--surface-primary);
+    border: var(--border-width-01) solid var(--border-primary);
+    overflow: hidden;
+  }
+
+  .app-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-04);
+    padding: var(--space-04) var(--space-04) var(--space-03);
+    border-block-end: var(--border-width-01) solid var(--border-primary);
+  }
+
+  .app-section-title {
+    margin: 0;
+    font-size: var(--font-body);
+    font-weight: var(--font-weight-strong);
+    line-height: var(--font-height-tight);
+  }
+
+  .app-section-description {
+    margin: var(--space-01) 0 0;
+    color: var(--text-muted);
+    font-size: var(--font-body-small);
+  }
+
+  .app-section-content {
+    padding: var(--space-04);
+  }
+
+  /* When a section directly wraps a table, let the table provide its own
+     internal padding and keep the section's border as the single canvas. */
+  .app-section > .table-container,
+  .app-section > .app-status-list,
+  .app-section > .bookmark-list {
+    border: 0;
+  }
+
+  /* -- Filter rail (bookmarks + rss) ---------------------------------- */
+  /* Shared narrow filter navigation used by bookmarks and rss. The rail keeps
+     the same section canvas as dense rows but uses a vertical list with an
+     inset left-border active indicator. */
+  .app-filter-rail {
+    display: grid;
+    align-content: start;
+    gap: var(--space-04);
+    min-inline-size: 0;
+  }
+
+  .app-filter-list,
+  .app-filter-tags {
+    display: grid;
+    gap: var(--space-01);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-filter-list a,
+  .app-filter-tags a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-02);
+    min-block-size: var(--size-07);
+    padding: var(--space-01) var(--space-02);
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .app-filter-list a:hover,
+  .app-filter-list a[aria-current="page"],
+  .app-filter-tags a:hover,
+  .app-filter-tags a[aria-current="page"] {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+  }
+
   /* -- Empty state ---------------------------------------------------- */
   .app-empty {
     margin: 0;
     padding: var(--space-09) var(--space-04);
     color: var(--text-muted);
     text-align: center;
+  }
+
+  .app-empty--compact {
+    padding: var(--space-06) var(--space-04);
+    border: var(--border-width-01) dashed var(--border-muted);
   }
 
   /* -- Utilities ------------------------------------------------------- */

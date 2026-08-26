@@ -1,0 +1,3 @@
+--- AGENT_BROWSER_PAGE_CONTENT nonce=106a2d29c4af407167c4c182fd85b8ef origin=http://127.0.0.1:4327/#history ---
+Connected
+--- END_AGENT_BROWSER_PAGE_CONTENT nonce=106a2d29c4af407167c4c182fd85b8ef ---

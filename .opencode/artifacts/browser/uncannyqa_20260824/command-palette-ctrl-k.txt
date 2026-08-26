@@ -1,0 +1,33 @@
+--- AGENT_BROWSER_PAGE_CONTENT nonce=e3cd0b3b91a43783ed2ba5938b17ed26 origin=http://127.0.0.1:4327/ ---
+- link "Uncanny Lab home" [ref=e1]
+- navigation "Primary navigation" [ref=e2]
+  - link "Generate" [ref=e4]
+  - link "History" [ref=e5]
+  - link "Models" [ref=e6]
+  - link "System" [ref=e7]
+- region "Make something uncanny" [ref=e3]
+  - heading "Make something uncanny" [level=1, ref=e8]
+  - tab "Text to image" [selected, ref=e16]
+  - tab "Image to image" [ref=e17]
+  - combobox "Engine" [expanded=false, ref=e18]: Big Sleep
+    - option "Big Sleep" [selected, ref=e29]
+    - option "Deep Daze" [ref=e30]
+    - option "VQGAN + CLIP" [ref=e31]
+  - textbox "OpenAI CLIP QuickGELU checkpoint" [ref=e19]: /data/models/bundle-b/clip/vit-b-32.pt
+  - textbox "BigGAN TorchScript generator" [ref=e20]: /data/models/bundle-b/biggan/generator.pt
+  - spinbutton "Height" [ref=e21]: 256
+  - spinbutton "Iterations" [ref=e22]: 300
+  - textbox "Prompt" [ref=e23]: an ImageNet chimera
+  - spinbutton "Width" [ref=e24]: 256
+  - spinbutton "Seed" [ref=e25]
+  - textbox "CLIP architecture" [ref=e26]: ViT-B-32
+  - spinbutton "Learning rate" [ref=e27]: 0.05000000074505806
+  - spinbutton "Class entropy penalty" [ref=e28]: 0.009999999776482582
+  - button "Generate" [ref=e10]
+  - region "Preview timeline" [ref=e9]
+    - heading "Preview timeline" [level=2, ref=e11]
+    - button "Cancel" [disabled, ref=e12]
+    - button "Run again" [ref=e13]
+    - button "Download frame" [disabled, ref=e14]
+    - button "Use frame as input" [disabled, ref=e15]
+--- END_AGENT_BROWSER_PAGE_CONTENT nonce=e3cd0b3b91a43783ed2ba5938b17ed26 ---

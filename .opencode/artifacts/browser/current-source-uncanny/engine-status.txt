@@ -1,0 +1,3 @@
+--- AGENT_BROWSER_PAGE_CONTENT nonce=3e0df796507fbd082a701ee120c7a2eb origin=http://127.0.0.1:41667/#generate ---
+4 image to image engines ready.
+--- END_AGENT_BROWSER_PAGE_CONTENT nonce=3e0df796507fbd082a701ee120c7a2eb ---

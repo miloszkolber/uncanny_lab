@@ -19,6 +19,9 @@ taming-transformers/
 pytorch-pretrained-BigGAN/
 model-sources/
 
+# Local licensing review
+04_UNCANNY_MODEL_LICENSING.md
+
 # Checkpoints and converted model bundles are installed outside Git.
 *.pt
 *.pth

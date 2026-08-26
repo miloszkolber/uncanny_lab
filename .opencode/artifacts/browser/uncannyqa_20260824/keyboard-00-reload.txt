@@ -1,0 +1,3 @@
+--- AGENT_BROWSER_PAGE_CONTENT nonce=263ab58cf9fad31bf57c2d0eacfe6158 origin=about:blank ---
+(no interactive elements)
+--- END_AGENT_BROWSER_PAGE_CONTENT nonce=263ab58cf9fad31bf57c2d0eacfe6158 ---
