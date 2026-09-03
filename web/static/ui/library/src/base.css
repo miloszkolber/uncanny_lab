@@ -146,67 +146,12 @@
      --border-width-100: 4px;
      --border-radius-000: 0;
      --border-radius-6400: 16rem;
-     /* Deprecated aliases for live-mount consumers still on the 01 scale. */
-     /* Keep until fleet migration is verified (grep for "space-0" yields 0). */
-      --space-00: var(--space-000);
-      --space-01: var(--space-100);
-      --space-02: var(--space-200);
-      --space-03: var(--space-300);
-      --space-04: var(--space-400);
-      --space-05: var(--space-500);
-      --space-06: var(--space-600);
-      --space-07: var(--space-800);
-      --space-08: var(--space-1000);
-      --space-09: var(--space-1200);
-      --space-10: var(--space-1400);
-      --space-11: var(--space-1600);
-      --space-12: var(--space-2000);
-      --space-13: var(--space-2400);
-      --space-14: var(--space-2800);
-      --space-15: var(--space-3200);
-      --size-00: var(--size-000);
-      --size-01: var(--size-100);
-      --size-02: var(--size-200);
-      --size-03: var(--size-300);
-      --size-04: var(--size-400);
-      --size-05: var(--size-500);
-      --size-06: var(--size-600);
-      --size-07: var(--size-800);
-      --size-08: var(--size-1000);
-      --size-09: var(--size-1200);
-      --size-10: var(--size-1400);
-      --size-11: var(--size-1600);
-      --size-12: var(--size-2000);
-      --size-13: var(--size-2400);
-      --size-14: var(--size-2800);
-      --size-15: var(--size-3200);
-      --border-width-00: var(--border-width-000);
-      --border-width-01: var(--border-width-025);
-      --border-width-02: var(--border-width-050);
-      --border-width-03: var(--border-width-100);
-      --font-body: var(--font-size-400);
-      --font-body-small: var(--font-size-350);
-      --font-body-xsmall: var(--font-size-300);
-      --font-h1: var(--font-size-1000);
-      --font-h2: var(--font-size-800);
-      --font-h3: var(--font-size-600);
-      --font-h4: var(--font-size-400);
-      --font-height: var(--font-height-regular);
-      --font-weight: var(--font-weight-400);
-      --font-weight-strong: var(--font-weight-550);
-      --font-tracking: var(--text-tracking-default);
-      --font-spacing: var(--space-100);
-      --font-height-none: var(--font-height-flat);
-      --border-radius: var(--border-radius-000);
-      --radius-full: var(--border-radius-6400);
-      --blur-01: var(--blur-100);
-      --blur-02: var(--blur-200);
      --blur-100: 0.25rem;
-    --blur-200: 0.5rem;
-    --motion-duration-fast: 100ms;
-    --motion-duration-spatial: 160ms;
-    --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
-    --breakpoint-narrow: 37.5rem;
+     --blur-200: 0.5rem;
+     --motion-duration-fast: 100ms;
+     --motion-duration-spatial: 160ms;
+     --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+     --breakpoint-narrow: 37.5rem;
      --breakpoint-compact: 48rem;
      --breakpoint-max-focused: 64rem;
      --breakpoint-max-dense: 90rem;
@@ -237,7 +182,7 @@
     /* Authored focus roles. */
      --focus-ring-width: var(--border-width-050);
      --focus-ring-outer-width: var(--border-width-100);
- }
+  }
 
 /* Foundation defaults stay in the base layer so component layers can override them. */
 @layer base {
