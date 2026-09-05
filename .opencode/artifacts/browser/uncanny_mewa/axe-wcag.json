@@ -1,6 +1,0 @@
-url: http://127.0.0.1:39127/index.html
-axe-core: 4.12.1  violations: 1  incomplete: 0  passes: 22
-
-[serious] aria-prohibited-attr: Elements must only use permitted ARIA attributes (1 node)
-  https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI
-  - #timeline

@@ -1,3 +1,0 @@
---- AGENT_BROWSER_PAGE_CONTENT nonce=731ec987aeb42821a19c8ae398a50de4 origin=http://127.0.0.1:4327/#history ---
-cancelled
---- END_AGENT_BROWSER_PAGE_CONTENT nonce=731ec987aeb42821a19c8ae398a50de4 ---
