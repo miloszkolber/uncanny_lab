@@ -23,7 +23,6 @@ model-sources/
 
 # Development-only sources and generated output.
 python/tests/
-tools/*.sh
 coverage.out
 coverage*/
 dist/

@@ -24,9 +24,37 @@ import (
 var version = "development"
 var revision = "unknown"
 
+func healthcheck() int {
+	port := "8080"
+	if value, ok := os.LookupEnv("UNCANNY_PORT"); ok && value != "" {
+		port = value
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	for _, path := range []string{"/healthz", "/ui/src/base.css"} {
+		resp, err := client.Get("http://127.0.0.1:" + port + path)
+		if err != nil {
+			return 1
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return 1
+		}
+	}
+	return 0
+}
+
 func main() {
 	configPath := flag.String("config", "/config/config.yaml", "configuration file")
+	healthcheckOnly := flag.Bool("healthcheck", false, "probe /healthz and /ui over loopback and exit")
 	flag.Parse()
+	if *healthcheckOnly {
+		os.Exit(healthcheck())
+	}
+	for _, arg := range flag.Args() {
+		if arg == "healthcheck" {
+			os.Exit(healthcheck())
+		}
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg, err := config.Load(*configPath)

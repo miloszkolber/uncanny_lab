@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 ARG VERSION=development
 ARG REVISION=unknown
 ARG CREATED=unknown
@@ -32,6 +33,10 @@ COPY internal ./internal
 COPY web ./web
 RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.revision=${REVISION}" -o /out/uncanny-lab ./cmd/server
 
+# Distroless is not possible for the final image: the Python worker needs the
+# Intel XPU PyTorch runtime and userspace compute libraries from the Intel
+# base image. The Go server itself is a static binary and follows the cuddler
+# pattern where practical: baked mewa_ui, binary -healthcheck, non-root USER.
 # Intel's XPU image includes PyTorch and the userspace compute runtime required by Arc B-series GPUs.
 FROM docker.io/intel/pytorch:xpu-2.11.0-ubuntu24.04@sha256:dda613c2e1ab34d9630626ffac50d530fe5e2ef5576f6fb68de7b2d360b41cd5
 
@@ -66,6 +71,9 @@ COPY python/uncanny_lab /opt/venv/lib/python3.12/site-packages/uncanny_lab
 
 WORKDIR /app
 COPY --from=go-builder /out/uncanny-lab /usr/local/bin/uncanny-lab
+# mewa_ui is bundled at build time from the mewa_ui additional context
+# (same pattern as cuddler) and served from /ui. No vendored copy in git.
+COPY --from=mewa_ui library/ /ui/
 COPY manifests /app/manifests
 COPY tools/convert_bundle_b.py /app/tools/convert_bundle_b.py
 COPY tools/sitecustomize.py /app/tools/sitecustomize.py
@@ -76,5 +84,6 @@ COPY LICENSE THIRD_PARTY_NOTICES /usr/share/licenses/uncanny-lab/
 
 EXPOSE 8080
 USER 1000:1000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 CMD ["/usr/local/bin/uncanny-lab", "-healthcheck"]
 ENTRYPOINT ["uncanny-lab"]
 CMD ["--config", "/config/config.yaml"]

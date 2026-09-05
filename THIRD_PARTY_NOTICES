@@ -5,7 +5,7 @@ This distribution includes a Go binary built with the modules below. The version
 
 Lucide icons
 ------------
-The bundled `web/static/ui/src/icons/` files and the inline icon markup in the browser UI include icons from Lucide.
+The `mewa_ui` icon files served from `/ui` and the inline icon markup in the browser UI include icons from Lucide.
 
 Copyright Lucide Contributors
 
@@ -21,7 +21,8 @@ Installed Python wheel license files, inherited Intel image license files and EU
 
 MIT License
 -----------
-mewa_ui (vendored subset under web/static/ui/)
+mewa_ui (baked into the image at build time from the mewa_ui build context,
+same pattern as cuddler; no vendored copy in this source tree)
 Upstream: https://github.com/codylindley/shadcn-html at commit 0964e09e16034e39a244589d457a866171991f1d, diverged as mewa_ui.
 
 Copyright (c) Cody Lindley and mewa_ui contributors

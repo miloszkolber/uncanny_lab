@@ -1,14 +1,14 @@
 services:
     uncanny-lab:
         image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.1.2}"
+        build:
+            context: .
+            additional_contexts:
+                mewa_ui: ../mewa_ui
         restart: unless-stopped
         user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
+        init: true
         read_only: true
-        security_opt:
-            - no-new-privileges:true
-        cap_drop:
-            - ALL
-        pids_limit: 512
         devices:
             - "${UNCANNY_RENDER_DEVICE:-/dev/dri/renderD128}:/dev/dri/renderD128"
         group_add:
@@ -31,8 +31,8 @@ services:
         ports:
             - "${UNCANNY_BIND_ADDRESS:-127.0.0.1}:${UNCANNY_PORT:-8080}:${UNCANNY_PORT:-8080}"
         healthcheck:
-            test: ["CMD", "python3", "-c", "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['UNCANNY_PORT']}/healthz\", timeout=3)"]
-            interval: 60s
-            timeout: 5s
+            test: ["CMD", "/usr/local/bin/uncanny-lab", "-healthcheck"]
+            interval: 30s
+            timeout: 3s
             retries: 3
-            start_period: 10s
+            start_period: 15s

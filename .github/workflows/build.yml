@@ -24,6 +24,11 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
                   persist-credentials: false
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  repository: miloszkolber/mewa_ui
+                  path: mewa_ui-build
+                  persist-credentials: false
             - name: Free runner disk space
               run: |
                   sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost
@@ -67,6 +72,8 @@ jobs:
                   platforms: linux/amd64
                   load: true
                   tags: uncanny-lab:tested
+                  build-contexts: |
+                      mewa_ui=./mewa_ui-build
                   build-args: |
                       VERSION=${{ inputs.version }}
                       REVISION=${{ github.sha }}
@@ -80,8 +87,29 @@ jobs:
                   --workdir /workspace
                   --entrypoint python3
                   uncanny-lab:tested -m unittest discover -s python/tests -v
-            - name: Verify the tested final image
-              run: tools/verify_image.sh uncanny-lab:tested "${{ github.sha }}" "${{ inputs.version }}"
+            - name: Smoke-test the tested final image
+              run: |
+                  test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' uncanny-lab:tested)" = linux/amd64
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' uncanny-lab:tested)" = "${{ inputs.version }}"
+                  name="uncanny-lab-smoke-$$"
+                  data_dir=$(mktemp -d)
+                  chmod 777 "$data_dir"
+                  docker run -d --name "$name" -e UNCANNY_DEVICE=cpu -v "$data_dir:/data" uncanny-lab:tested >/dev/null
+                  ready=false
+                  for _ in $(seq 1 30); do
+                      if docker exec "$name" /usr/local/bin/uncanny-lab -healthcheck >/dev/null 2>&1; then
+                          ready=true
+                          break
+                      fi
+                      sleep 1
+                  done
+                  if [ "$ready" != true ]; then
+                      docker logs "$name" >&2
+                      exit 1
+                  fi
+                  docker exec "$name" python3 -c 'import urllib.request; assert b"mewa_ui" in urllib.request.urlopen("http://127.0.0.1:8080/ui/src/base.css", timeout=3).read()'
+                  docker rm -f "$name" >/dev/null
+                  rm -rf "$data_dir"
             - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
               with:
                   registry: ghcr.io

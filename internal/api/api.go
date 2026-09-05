@@ -1158,9 +1158,9 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 
 func quietLogPath(path string) bool {
 	switch {
-	case path == "/" || path == "/healthz" || path == "/favicon.svg" || path == "/styles.css" || path == "/app.js" || path == "/lucide.svg":
+	case path == "/" || path == "/healthz" || path == "/favicon.svg" || path == "/styles.css" || path == "/app.js":
 		return true
-	case strings.HasPrefix(path, "/artifacts/"), strings.HasPrefix(path, "/api/uploads/"):
+	case strings.HasPrefix(path, "/ui/"), strings.HasPrefix(path, "/artifacts/"), strings.HasPrefix(path, "/api/uploads/"):
 		return true
 	}
 	return false

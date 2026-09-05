@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Uncanny Lab</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/ui/library/src/base.css">
-  <link rel="stylesheet" href="/ui/library/src/tokens.css">
+  <link rel="stylesheet" href="/ui/src/base.css">
+  <link rel="stylesheet" href="/ui/src/tokens.css">
   <script>
     (function () {
       var stored = null;
@@ -19,20 +19,20 @@
       document.documentElement.classList.toggle('dark', theme === 'dark');
     }());
   </script>
-  <link rel="stylesheet" href="/ui/library/components/app-shell/app-shell.css">
-  <link rel="stylesheet" href="/ui/library/components/text-field/text-field.css">
-  <link rel="stylesheet" href="/ui/library/components/select/select.css">
-  <link rel="stylesheet" href="/ui/library/components/checkbox/checkbox.css">
-  <link rel="stylesheet" href="/ui/library/components/file-input/file-input.css">
-  <link rel="stylesheet" href="/ui/library/components/textarea/textarea.css">
-  <link rel="stylesheet" href="/ui/library/components/button/button.css">
-  <link rel="stylesheet" href="/ui/library/components/badge/badge.css">
-  <link rel="stylesheet" href="/ui/library/components/card/card.css">
-  <link rel="stylesheet" href="/ui/library/components/progress/progress.css">
-  <link rel="stylesheet" href="/ui/library/components/tabs/tabs.css">
-  <link rel="stylesheet" href="/ui/library/components/dialog/dialog.css">
-  <link rel="stylesheet" href="/ui/library/components/alert-dialog/alert-dialog.css">
-  <link rel="stylesheet" href="/ui/library/components/command-palette/command-palette.css">
+  <link rel="stylesheet" href="/ui/components/app-shell/app-shell.css">
+  <link rel="stylesheet" href="/ui/components/text-field/text-field.css">
+  <link rel="stylesheet" href="/ui/components/select/select.css">
+  <link rel="stylesheet" href="/ui/components/checkbox/checkbox.css">
+  <link rel="stylesheet" href="/ui/components/file-input/file-input.css">
+  <link rel="stylesheet" href="/ui/components/textarea/textarea.css">
+  <link rel="stylesheet" href="/ui/components/button/button.css">
+  <link rel="stylesheet" href="/ui/components/badge/badge.css">
+  <link rel="stylesheet" href="/ui/components/card/card.css">
+  <link rel="stylesheet" href="/ui/components/progress/progress.css">
+  <link rel="stylesheet" href="/ui/components/tabs/tabs.css">
+  <link rel="stylesheet" href="/ui/components/dialog/dialog.css">
+  <link rel="stylesheet" href="/ui/components/alert-dialog/alert-dialog.css">
+  <link rel="stylesheet" href="/ui/components/command-palette/command-palette.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="app-shell">
@@ -96,10 +96,10 @@
   </dialog>
   <div id="announcements" class="app-toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="/app.js" defer></script>
-  <script type="module" src="/ui/library/components/app-shell/app-shell.js"></script>
-  <script type="module" src="/ui/library/components/tabs/tabs.js"></script>
-  <script type="module" src="/ui/library/components/alert-dialog/alert-dialog.js"></script>
-  <script type="module" src="/ui/library/components/command-palette/command-palette.js"></script>
-  <script type="module" src="/ui/library/components/dialog/dialog.js"></script>
+  <script type="module" src="/ui/components/app-shell/app-shell.js"></script>
+  <script type="module" src="/ui/components/tabs/tabs.js"></script>
+  <script type="module" src="/ui/components/alert-dialog/alert-dialog.js"></script>
+  <script type="module" src="/ui/components/command-palette/command-palette.js"></script>
+  <script type="module" src="/ui/components/dialog/dialog.js"></script>
 </body>
 </html>

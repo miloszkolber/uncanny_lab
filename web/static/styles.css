@@ -1,8 +1,8 @@
 /* Uncanny Lab application styles
- * Loaded after the vendored mewa_ui foundations and component stylesheets.
+ * Loaded after the baked mewa_ui foundations and component stylesheets.
  * This file owns application layout only. Colors, typography, geometry, and
- * component surfaces and interaction feedback come from /ui/library/src/base.css,
- * /ui/library/src/tokens.css, and the component stylesheets.
+ * component surfaces and interaction feedback come from /ui/src/base.css,
+ * /ui/src/tokens.css, and the component stylesheets.
  */
 .app-shell {
     --app-shell-max: var(--breakpoint-max-dense);

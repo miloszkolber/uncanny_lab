@@ -109,12 +109,21 @@ Preview retention is configured in `config.yaml` under `previews`: `every_steps`
 
 ## Build and test
 
-Build a local Linux AMD64 image and use it with either Compose configuration:
+The browser UI needs `mewa_ui` at build time. It is bundled from a sibling
+checkout via the `mewa_ui` build context (same pattern as cuddler), not
+vendored in this repository:
 
 ```bash
-docker build --platform linux/amd64 -t uncanny-lab:local .
+git clone https://github.com/miloszkolber/mewa_ui.git ../mewa_ui
+docker build --build-context mewa_ui=../mewa_ui --platform linux/amd64 -t uncanny-lab:local .
 UNCANNY_IMAGE=uncanny-lab:local docker compose -f compose.yaml -f compose.cpu.yaml up
 ```
+
+A fully distroless image is not possible: the Python worker needs the Intel
+XPU PyTorch runtime. The Go server itself is a static binary and follows the
+cuddler pattern where practical: baked `mewa_ui` under `/ui`, a binary
+`uncanny-lab -healthcheck` probe (no shell or Python in the healthcheck), and
+a non-root user.
 
 Useful checks:
 
@@ -127,7 +136,6 @@ node --test web/navigation.test.mjs
 bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
 docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
-tools/verify_image.sh uncanny-lab:local
 ```
 
 ## Data and security

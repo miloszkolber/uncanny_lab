@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -21,16 +23,61 @@ func getBody(t *testing.T, handler http.Handler, path string) (int, string) {
 	return response.Code, string(body)
 }
 
-func TestEmbeddedUIFoundations(t *testing.T) {
+// writeUIFixture stages a minimal mewa_ui checkout on disk, mirroring the
+// baked /ui directory (Dockerfile COPY --from=mewa_ui, same as cuddler).
+func writeUIFixture(t *testing.T, root string) {
+	t.Helper()
+	files := map[string]string{
+		"src/base.css":   "/* mewa_ui — base */",
+		"src/tokens.css": ".dark { color-scheme: dark; }",
+	}
+	iconPattern := regexp.MustCompile(`icon\("([a-z-]+)"`)
+	names := map[string]bool{}
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, index := getBody(t, handler, "/")
+	for _, match := range iconPattern.FindAllStringSubmatch(index, -1) {
+		names[match[1]] = true
+	}
+	_, appCode := getBody(t, handler, "/app.js")
+	for _, match := range iconPattern.FindAllStringSubmatch(appCode, -1) {
+		names[match[1]] = true
+	}
+	for name := range names {
+		files["src/icons/"+name+".svg"] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>`
+	}
+	localRef := regexp.MustCompile(`(?:href|src)="(/ui/[^"]+)"`)
+	for _, match := range localRef.FindAllStringSubmatch(index, -1) {
+		name := strings.TrimPrefix(match[1], "/ui/")
+		if _, ok := files[name]; !ok {
+			if strings.HasSuffix(name, ".css") {
+				files[name] = "/* mewa_ui fixture */"
+			} else if strings.HasSuffix(name, ".js") {
+				files[name] = "// mewa_ui fixture"
+			}
+		}
+	}
+	for name, content := range files {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestEmbeddedAppFiles(t *testing.T) {
 	handler, err := Handler()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, expected := range map[string]string{
-		"/styles.css":        "/* Uncanny Lab application styles",
-		"/ui/library/src/base.css":   "mewa_ui",
-		"/ui/library/src/tokens.css": ".dark",
-		"/favicon.svg":       `<svg xmlns="http://www.w3.org/2000/svg"`,
+		"/styles.css":  "/* Uncanny Lab application styles",
+		"/favicon.svg": `<svg xmlns="http://www.w3.org/2000/svg"`,
 	} {
 		code, body := getBody(t, handler, path)
 		if code != http.StatusOK {
@@ -43,6 +90,34 @@ func TestEmbeddedUIFoundations(t *testing.T) {
 	_, styles := getBody(t, handler, "/styles.css")
 	if strings.Contains(styles, "--ui-") || strings.Contains(styles, "Core UI") {
 		t.Error("application styles still reference the retired Core UI foundation")
+	}
+}
+
+func TestUIFromDisk(t *testing.T) {
+	root := t.TempDir()
+	writeUIFixture(t, root)
+	t.Setenv("UI_ROOT", root)
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, expected := range map[string]string{
+		"/ui/src/base.css":   "mewa_ui",
+		"/ui/src/tokens.css": ".dark",
+	} {
+		code, body := getBody(t, handler, path)
+		if code != http.StatusOK {
+			t.Fatalf("GET %s status = %d", path, code)
+		}
+		if !strings.Contains(body, expected) {
+			t.Errorf("GET %s does not contain %q", path, expected)
+		}
+	}
+	if code, _ := getBody(t, handler, "/ui/../web/embed.go"); code != http.StatusNotFound {
+		t.Errorf("GET /ui/../web/embed.go status = %d, want 404", code)
+	}
+	if code, _ := getBody(t, handler, "/ui/src/secret.txt"); code != http.StatusNotFound {
+		t.Errorf("GET /ui/src/secret.txt status = %d, want 404", code)
 	}
 }
 
@@ -68,6 +143,9 @@ func TestEmbeddedUISkipLinkTarget(t *testing.T) {
 }
 
 func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
+	root := t.TempDir()
+	writeUIFixture(t, root)
+	t.Setenv("UI_ROOT", root)
 	handler, err := Handler()
 	if err != nil {
 		t.Fatal(err)
@@ -76,15 +154,15 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	if indexCode != http.StatusOK {
 		t.Fatalf("GET / status = %d", indexCode)
 	}
-	// Every local stylesheet, script, image, and font referenced by the UI must
-	// resolve inside the embedded filesystem.
+	// App-owned refs resolve from the embedded filesystem; /ui/* refs resolve
+	// from the baked mewa_ui checkout on disk (same pattern as cuddler).
 	localRef := regexp.MustCompile(`(?:href|src)="(/[^"]+)"`)
 	for _, match := range localRef.FindAllStringSubmatch(index, -1) {
 		if code, _ := getBody(t, handler, match[1]); code != http.StatusOK {
 			t.Errorf("GET %s referenced by index status = %d", match[1], code)
 		}
 	}
-	// Icons are inlined or loaded from the vendored standalone Lucide files.
+	// Icons load from the baked mewa_ui icon set on disk.
 	appCode := func() string {
 		request := httptest.NewRequest(http.MethodGet, "/app.js", nil)
 		response := httptest.NewRecorder()
@@ -98,7 +176,7 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	iconPattern := regexp.MustCompile(`icon\("([a-z-]+)"`)
 	for _, source := range []string{index, appCode} {
 		for _, match := range iconPattern.FindAllStringSubmatch(source, -1) {
-			path := "/ui/library/src/icons/" + match[1] + ".svg"
+			path := "/ui/src/icons/" + match[1] + ".svg"
 			code, icon := getBody(t, handler, path)
 			if code != http.StatusOK {
 				t.Errorf("GET %s status = %d", path, code)
@@ -136,13 +214,13 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`<dialog id="detail-dialog"`,
 		`<dialog id="confirm-dialog"`,
 		`<dialog id="installer-dialog"`,
-		`/ui/library/src/base.css`,
-		`/ui/library/src/tokens.css`,
-		`/ui/library/components/command-palette/command-palette.css`,
-		`/ui/library/components/alert-dialog/alert-dialog.js`,
-		`/ui/library/components/command-palette/command-palette.js`,
-		`/ui/library/components/dialog/dialog.js`,
-		`/ui/library/components/tabs/tabs.js`,
+		`/ui/src/base.css`,
+		`/ui/src/tokens.css`,
+		`/ui/components/command-palette/command-palette.css`,
+		`/ui/components/alert-dialog/alert-dialog.js`,
+		`/ui/components/command-palette/command-palette.js`,
+		`/ui/components/dialog/dialog.js`,
+		`/ui/components/tabs/tabs.js`,
 		`class="app-nav"`,
 		`class="page-description"`,
 		`class="app-content"`,
@@ -214,6 +292,6 @@ func TestDetailImageViewportTabOrder(t *testing.T) {
 		t.Error("detail image viewport tab order is not synchronized with image availability")
 	}
 	if !strings.Contains(appCode, `open.dataset.dialogTrigger = "detail-dialog"`) {
-		t.Error("detail action must use the vendored Dialog trigger contract")
+		t.Error("detail action must use the Dialog trigger contract")
 	}
 }
