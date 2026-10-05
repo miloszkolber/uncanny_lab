@@ -37,3 +37,8 @@ model-sources/
 *.secrets
 config/*.local.yaml
 config/*.dev.yaml
+
+# Vendored Mewa UI package: a checksum-addressed snapshot supplied by the
+# library maintainer and published by scripts/sync-mewa-ui.mjs. It is a build
+# input, not authored source, and is not tracked here.
+ui/
