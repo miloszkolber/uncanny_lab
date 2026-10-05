@@ -131,7 +131,7 @@ docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
 ```
 
-The Python worker and conversion tests need the optional pinned PyTorch dependencies; byte compilation and Go/UI checks do not prove engine generation. The review did not install dependencies, run live generation, or install models. See [the UI review](docs/ui-review.md) for the executed results and environment limits.
+The Python worker and conversion tests need the optional pinned PyTorch dependencies; byte compilation and Go/UI checks do not prove engine generation. The checks did not install dependencies, run live generation, or install models.
 
 ### UI package sync
 
