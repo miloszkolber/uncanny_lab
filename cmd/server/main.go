@@ -30,7 +30,8 @@ func healthcheck() int {
 		port = value
 	}
 	client := &http.Client{Timeout: 2 * time.Second}
-	for _, path := range []string{"/healthz", "/ui/src/base.css"} {
+	const foundation = "/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/base.css"
+	for _, path := range []string{"/healthz", foundation} {
 		resp, err := client.Get("http://127.0.0.1:" + port + path)
 		if err != nil {
 			return 1

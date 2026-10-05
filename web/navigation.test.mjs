@@ -69,11 +69,11 @@ function makeHarness(hash) {
     loadInstaller: () => { calls.loadInstaller += 1; },
     loadSystem: () => { calls.loadSystem += 1; },
   };
-  return { calls, context, document, links, main, route: null, focusMainFromSkip: null, views };
+  return { calls, context, document, links, main, titles, route: null, focusMainFromSkip: null, views };
 }
 
 function loadNavigationFunctions(harness) {
-  harness.route = vm.runInNewContext(`(${sourceLine("function route()")})`, harness.context);
+  harness.route = vm.runInNewContext(`(${sourceLine("function route(")})`, harness.context);
   harness.focusMainFromSkip = vm.runInNewContext(
     `(${sourceLine("function focusMainFromSkip")})`,
     harness.context,
@@ -154,6 +154,23 @@ test("route keeps the document title in sync with the view", () => {
 
   harness.route();
   assert.equal(harness.document.title, "Uncanny Lab — Models");
+});
+
+// The first render must not move focus. Focusing the page heading on load put
+// focus inside the main landmark before any interaction, which pushed the skip
+// link out of the forward tab order and defeated the purpose of having one.
+// Focus belongs on a real view change only.
+test("first render does not move focus to the heading, a view change does", () => {
+  const initial = makeHarness("#generate");
+  loadNavigationFunctions(initial);
+  initial.route(false);
+  assert.equal(initial.titles.generate.focused, false, "first render must not focus the heading");
+  assert.equal(initial.document.title, "Uncanny Lab");
+
+  const changed = makeHarness("#models");
+  loadNavigationFunctions(changed);
+  changed.route();
+  assert.equal(changed.titles.models.focused, true, "a view change must focus the new heading");
 });
 
 test("command shortcut label matches the platform", () => {

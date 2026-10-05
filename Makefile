@@ -6,7 +6,8 @@ test-go:
 	go test ./...
 
 test-web:
-	node --test web/navigation.test.mjs
+	bun test web/navigation.test.mjs web/form-draft.test.mjs web/generation.test.mjs web/workflow-state.test.mjs scripts/ui-assets.test.mjs
+	bun scripts/sync-mewa-ui.test.mjs
 
 test-python:
 	PYTHONPATH=python python3 -m unittest discover -s python/tests -v

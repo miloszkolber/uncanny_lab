@@ -3,8 +3,6 @@ services:
         image: "${UNCANNY_IMAGE:-ghcr.io/miloszkolber/uncanny-lab:0.1.2}"
         build:
             context: .
-            additional_contexts:
-                mewa_ui: ../mewa_ui
         restart: unless-stopped
         user: "${UNCANNY_UID:-1000}:${UNCANNY_GID:-1000}"
         init: true

@@ -109,34 +109,44 @@ Preview retention is configured in `config.yaml` under `previews`: `every_steps`
 
 ## Build and test
 
-The browser UI needs `mewa_ui` at build time. It is bundled from a sibling
-checkout via the `mewa_ui` build context (same pattern as cuddler), not
-vendored in this repository:
+The browser UI includes the complete checksum-addressed Mewa UI package in this repository. Building needs no sibling Mewa checkout, external build context, or host UI asset bind mount:
 
 ```bash
-git clone https://github.com/miloszkolber/mewa_ui.git ../mewa_ui
-docker build --build-context mewa_ui=../mewa_ui --platform linux/amd64 -t uncanny-lab:local .
+docker build --platform linux/amd64 -t uncanny-lab:local .
 UNCANNY_IMAGE=uncanny-lab:local docker compose -f compose.yaml -f compose.cpu.yaml up
 ```
 
-A fully distroless image is not possible: the Python worker needs the Intel
-XPU PyTorch runtime. The Go server itself is a static binary and follows the
-cuddler pattern where practical: baked `mewa_ui` under `/ui`, a binary
-`uncanny-lab -healthcheck` probe (no shell or Python in the healthcheck), and
-a non-root user.
+A fully distroless image is not possible: the Python worker needs the Intel XPU PyTorch runtime. The Go server itself is a static binary. The image includes the imported UI under `/ui`, a binary `uncanny-lab -healthcheck` probe (no shell or Python in the healthcheck), and a non-root user.
 
 Useful checks:
 
 ```bash
 go test -race ./...
 go vet ./...
-python3 -m compileall -q python tools
+PYTHONPYCACHEPREFIX=/tmp/opencode/uncanny-python-cache python3 -m compileall -q python tools
 PYTHONPATH=python python3 -m unittest discover -s python/tests -v
-node --test web/navigation.test.mjs
-bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
+bun test web/navigation.test.mjs web/form-draft.test.mjs web/generation.test.mjs web/workflow-state.test.mjs scripts/ui-assets.test.mjs
+bun build web/static/app.js --target browser --outfile /tmp/opencode/uncanny-lab-app.js
 docker compose -f compose.yaml config --quiet
 docker compose -f compose.yaml -f compose.cpu.yaml config --quiet
 ```
+
+The Python worker and conversion tests need the optional pinned PyTorch dependencies; byte compilation and Go/UI checks do not prove engine generation. The review did not install dependencies, run live generation, or install models. See [the UI review](docs/ui-review.md) for the executed results and environment limits.
+
+### UI package sync
+
+The imported Mewa package is a verified dirty snapshot, not a tagged or GitHub release: package version `0.2.0`, source revision `780a2cdf5b326fcb3d9d377a02d882c4de342c06`, and `source.dirty=true`. Its identity is the SHA-256 of `checksums.json`: `510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd`. The complete package is retained under `ui/mewa-ui/<hash>/`. HTML loads versioned flat component CSS, explicit Google Sans Code font assets, and plain-HTML `/auto/` modules; the server serves their full controller/runtime dependency graph.
+
+```bash
+# DIST_DIRECTORY is an expanded supplied package, not a Mewa source checkout.
+bun scripts/sync-mewa-ui.mjs DIST_DIRECTORY
+bun scripts/sync-mewa-ui.mjs --check ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd
+bun scripts/sync-mewa-ui.test.mjs
+```
+
+Do not edit generated package bytes or copy a partial package. The shared importer validates checksums, inventory, and manifest references before atomic staged publication under its per-identity publisher lock. Keep prior versions until image rollback no longer needs them. An update requires a complete import, coordinated HTML URLs and tests, and an Uncanny image rebuild. Rebuilding Mewa elsewhere does not update this app.
+
+The Dockerfile uses `COPY ui/ /ui/`; Compose does not need `additional_contexts: mewa_ui`. `UI_ROOT` defaults to `/ui`; local Go development can set it to the repository's `ui` directory. Successful canonical versioned assets use immutable caching. Application HTML, CSS, JavaScript, external theme bootstrap, and no-JavaScript stylesheet revalidate. `/theme.js` is same-origin so prepaint theme selection works with the production CSP.
 
 ## Data and security
 

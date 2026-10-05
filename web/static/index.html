@@ -5,101 +5,129 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Uncanny Lab</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/ui/src/base.css">
-  <link rel="stylesheet" href="/ui/src/tokens.css">
-  <script>
-    (function () {
-      var stored = null;
-      try {
-        stored = localStorage.getItem('mewa-ui-theme') || localStorage.getItem('mewa-theme');
-      } catch (error) {}
-      var theme = stored === 'light' || stored === 'dark'
-        ? stored
-        : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-    }());
-  </script>
-  <link rel="stylesheet" href="/ui/components/app-shell/app-shell.css">
-  <link rel="stylesheet" href="/ui/components/text-field/text-field.css">
-  <link rel="stylesheet" href="/ui/components/select/select.css">
-  <link rel="stylesheet" href="/ui/components/checkbox/checkbox.css">
-  <link rel="stylesheet" href="/ui/components/file-input/file-input.css">
-  <link rel="stylesheet" href="/ui/components/textarea/textarea.css">
-  <link rel="stylesheet" href="/ui/components/button/button.css">
-  <link rel="stylesheet" href="/ui/components/badge/badge.css">
-  <link rel="stylesheet" href="/ui/components/card/card.css">
-  <link rel="stylesheet" href="/ui/components/progress/progress.css">
-  <link rel="stylesheet" href="/ui/components/tabs/tabs.css">
-  <link rel="stylesheet" href="/ui/components/dialog/dialog.css">
-  <link rel="stylesheet" href="/ui/components/alert-dialog/alert-dialog.css">
-  <link rel="stylesheet" href="/ui/components/command-palette/command-palette.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/base.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/tokens.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/fonts/google-sans-code.css">
+  <script src="/theme.js"></script>
+  <link rel="preload" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/fonts/google-sans-code.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/button.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/text-field.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/select.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/checkbox.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/file-input.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/textarea.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/badge.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/card.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/collapsible.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/progress.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/tabs.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/dialog.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/alert-dialog.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/command-palette.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/toast.css">
+  <link rel="stylesheet" href="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/css/app-shell.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="app-shell">
   <a class="skip-link" href="#main-content">Skip to main content</a>
-
   <header class="app-header"><div class="app-header-inner">
-    <a class="brand" href="#generate" aria-label="Uncanny Lab home"><svg class="brand-logo" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Uncanny Lab</span></a>
-    <nav class="app-nav" aria-label="Primary navigation"><a href="#generate" data-view-link="generate">Generate</a><a href="#history" data-view-link="history">History</a><a href="#models" data-view-link="models">Models</a><a href="#system" data-view-link="system">System</a></nav>
-    <div class="app-header-actions"><button id="command-trigger" class="btn" data-variant="outline" type="button" data-command-palette-trigger="command-dialog" aria-keyshortcuts="Control+K Meta+K">Commands <kbd>Ctrl K</kbd></button><button class="btn" data-variant="outline" type="button" data-theme-toggle>Theme</button></div>
+    <a class="brand" href="#generate" aria-label="Uncanny Lab home">Uncanny Lab</a>
+    <nav class="app-nav" aria-label="Primary navigation">
+      <a href="#generate" data-view-link="generate">Generate</a><a href="#history" data-view-link="history">History</a><a href="#models" data-view-link="models">Models</a><a href="#system" data-view-link="system">System</a>
+    </nav>
+    <div class="app-header-actions">
+      <button id="command-trigger" class="btn" data-variant="secondary" data-icon-only type="button" data-command-palette-trigger="command-dialog" aria-label="Open commands" aria-keyshortcuts="Control+K Meta+K">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 8H14V6.5C14 4.567 15.567 3 17.5 3C19.433 3 21 4.567 21 6.5C21 8.433 19.433 10 17.5 10H16V14H17.5C19.433 14 21 15.567 21 17.5C21 19.433 19.433 21 17.5 21C15.567 21 14 19.433 14 17.5V16H10V17.5C10 19.433 8.433 21 6.5 21C4.567 21 3 19.433 3 17.5C3 15.567 4.567 14 6.5 14H8V10H6.5C4.567 10 3 8.433 3 6.5C3 4.567 4.567 3 6.5 3C8.433 3 10 4.567 10 6.5V8ZM8 8V6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8H8ZM8 16H6.5C5.67157 16 5 16.6716 5 17.5C5 18.3284 5.67157 19 6.5 19C7.32843 19 8 18.3284 8 17.5V16ZM16 8H17.5C18.3284 8 19 7.32843 19 6.5C19 5.67157 18.3284 5 17.5 5C16.6716 5 16 5.67157 16 6.5V8ZM16 16V17.5C16 18.3284 16.6716 19 17.5 19C18.3284 19 19 18.3284 19 17.5C19 16.6716 18.3284 16 17.5 16H16ZM10 10V14H14V10H10Z"/></svg>
+        <span class="visually-hidden">Commands <kbd>Ctrl K</kbd></span>
+      </button>
+      <button class="btn" data-variant="secondary" type="button" data-theme-toggle>Theme</button>
+    </div>
   </div></header>
   <main id="main-content" tabindex="-1">
+    <noscript><link rel="stylesheet" href="/no-js.css"><p class="noscript-message">Uncanny Lab requires JavaScript to load engines, browse jobs, and monitor generation.</p></noscript>
     <section id="generate" class="view" aria-labelledby="generate-title">
-      <div class="page-overview"><div><p class="eyebrow">Image workspace</p><h1 class="page-heading" id="generate-title" tabindex="-1">Make something uncanny</h1><p class="page-description">Choose an engine, shape its parameters, and follow each generated frame.</p></div><div id="connection-status" class="badge" data-state="running" role="status" aria-live="polite">Connecting</div></div>
-      <div class="app-content">
-      <div class="workspace-split generate-workspace">
+      <div class="page-overview"><div><h1 class="page-heading" id="generate-title" tabindex="-1">Generate an image</h1><p class="page-description">Choose an engine and follow its preview frames.</p></div><span id="connection-status" class="badge" data-state="running" role="status">Connecting</span></div>
+      <div class="app-content"><div class="workspace-split generate-workspace">
         <form id="generate-form" class="panel">
-          <div class="tabs panel-tabs">
-            <div class="tab-list" role="tablist" aria-label="Generation type"><button class="tab-trigger" type="button" role="tab" id="text-tab" aria-controls="text-panel" aria-selected="true" data-mode="text-to-image">Text to image</button><button class="tab-trigger" type="button" role="tab" id="image-tab" aria-controls="image-panel" aria-selected="false" data-mode="image-to-image" tabindex="-1">Image to image</button></div>
+          <div class="tabs panel-tabs"><div class="tab-list" role="tablist" aria-label="Generation type">
+            <button class="tab-trigger" type="button" role="tab" id="text-tab" aria-controls="text-panel" aria-selected="true" data-mode="text-to-image">Text to image</button>
+            <button class="tab-trigger" type="button" role="tab" id="image-tab" aria-controls="image-panel" aria-selected="false" data-mode="image-to-image" tabindex="-1">Image to image</button>
+          </div></div>
+          <div class="controls-body">
+            <p id="engine-status" class="visually-hidden" role="status"></p>
+            <div id="text-panel" class="tab-content" role="tabpanel" aria-labelledby="text-tab"><div id="engine-fields" class="field-list"><p class="loading-note" role="status">Loading engines…</p></div></div>
+            <div id="image-panel" class="tab-content" role="tabpanel" aria-labelledby="image-tab" hidden><p class="empty-note">Select an image-to-image engine to configure it.</p></div>
+            <p id="form-error" class="field-error" role="alert" hidden></p>
+            <div class="form-actions"><button id="reset-form" class="btn" data-variant="secondary" type="button">Reset</button><button id="submit-job" class="btn" data-variant="primary" type="submit" disabled>Generate</button></div>
           </div>
-          <div class="controls-body"><p id="engine-status" class="visually-hidden" role="status" aria-live="polite"></p><div id="text-panel" class="tab-content" role="tabpanel" aria-labelledby="text-tab" tabindex="0"><div id="engine-fields" class="field-list"><p class="loading-note" role="status">Loading engines…</p></div></div><div id="image-panel" class="tab-content" role="tabpanel" aria-labelledby="image-tab" tabindex="0" hidden><p class="empty-note">Select an image-to-image engine to configure it.</p></div><div id="form-error" class="field-error" role="alert" hidden></div><div class="form-actions"><button id="reset-form" class="btn" data-variant="outline" type="button">Reset</button><button id="submit-job" class="btn" data-variant="default" type="submit" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></svg>Generate</button></div></div>
         </form>
         <section class="panel stage-panel" aria-labelledby="stage-title">
-          <div class="panel-header"><div><p class="eyebrow">Current job</p><h2 class="panel-title" id="stage-title">Preview timeline</h2></div><div class="stage-header-actions"><button id="unpin-preview" class="btn" data-variant="ghost" data-size="icon" type="button" title="Unpin preview" aria-label="Unpin preview" hidden><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5m3-12.66V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89M2 2l20 20M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11"/></svg></button><span id="job-status" class="badge" data-state="running" role="status" aria-live="polite">Idle</span></div></div>
-           <div class="stage-body"><div id="preview-wrap" class="preview-wrap"><p id="empty-preview" class="empty-note">The current preview will appear here.</p><img id="preview" alt="Current generated preview" hidden></div><div id="progress-row" class="progress-copy" hidden><progress id="progress" class="progress" max="1" value="0" aria-label="Generation progress"></progress><span id="progress-label" class="meta-text">0 / 0</span></div><div id="timeline" class="timeline" role="group" aria-label="Preview timeline"></div><div class="action-row"><button id="cancel" class="btn" data-variant="outline" type="button" disabled>Cancel</button><button id="rerun" class="btn" data-variant="outline" type="button" disabled>Run again</button><button id="export" class="btn" data-variant="outline" type="button" disabled>Export</button><button id="download-frame" class="btn" data-variant="outline" type="button" disabled>Download frame</button><button id="use-frame" class="btn" data-variant="outline" type="button" disabled>Use frame as input</button></div><p id="job-error" class="field-error" role="alert" hidden></p></div>
+          <div class="panel-header"><h2 class="panel-title" id="stage-title">Current preview</h2><div class="stage-header-actions"><button id="unpin-preview" class="btn" data-variant="ghost" type="button" hidden>Follow latest frame</button><span id="job-status" class="badge" data-variant="outline" role="status">Idle</span></div></div>
+          <div class="stage-body">
+            <div id="preview-wrap" class="preview-wrap"><p id="empty-preview" class="empty-note">The current preview will appear here.</p><img id="preview" alt="Current generated preview" hidden></div>
+            <div id="progress-row" class="progress-copy" hidden><progress id="progress" class="progress" max="1" value="0" aria-label="Generation progress"></progress><span id="progress-label" class="meta-text">0 / 0</span></div>
+            <div id="timeline" class="timeline" role="group" aria-label="Preview timeline"></div>
+            <div class="action-row"><button id="cancel" class="btn" data-variant="ghost" type="button" disabled>Cancel</button><button id="rerun" class="btn" data-variant="secondary" type="button" disabled>Run again</button><button id="export" class="btn" data-variant="ghost" type="button" disabled>Export</button><button id="download-frame" class="btn" data-variant="ghost" type="button" disabled>Download frame</button><button id="use-frame" class="btn" data-variant="ghost" type="button" disabled>Use frame as input</button></div>
+            <p id="job-error" class="field-error" role="alert" hidden></p>
+          </div>
         </section>
       </div></div>
     </section>
-    <section id="history" class="view" aria-labelledby="history-title" hidden><div class="page-overview"><div><p class="eyebrow">Artifact archive</p><h1 class="page-heading" id="history-title" tabindex="-1">History</h1><p class="page-description">Saved runs, configurations, and final artifacts.</p></div></div><div class="app-content"><div class="history-toolbar"><div class="text-field"><label class="text-field-label" for="history-status-filter">Filter by status</label><select id="history-status-filter" class="select"><option value="all">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div><p id="history-summary" class="meta-text" role="status" aria-live="polite"></p></div><div id="history-grid" class="history-grid"></div></div></section>
-    <section id="models" class="view" aria-labelledby="models-title" hidden><div class="page-overview"><div><p class="eyebrow">Model inventory</p><h1 class="page-heading" id="models-title" tabindex="-1">Models</h1><p class="page-description">Verify registered models before generating.</p></div></div><div class="app-content"><section id="bundle-installer" class="bundle-installer app-section" aria-labelledby="bundle-installer-title"><div class="app-section-content"><h2 id="bundle-installer-title" class="panel-title">Install Bundle B</h2><p class="empty-note">Loading Bundle B installer details…</p></div></section><div id="models-error" class="field-error" role="alert" hidden></div><div id="models-list"></div></div></section>
-    <section id="system" class="view" aria-labelledby="system-title" hidden><div class="page-overview"><div><p class="eyebrow">Runtime diagnostics</p><h1 class="page-heading" id="system-title" tabindex="-1">System</h1><p class="page-description">Runtime, accelerator, disk, and queue health.</p></div></div><div class="app-content"><div id="system-grid" class="diagnostic-grid"></div></div></section>
+    <section id="history" class="view" aria-labelledby="history-title" hidden>
+      <div class="page-overview"><div><h1 class="page-heading" id="history-title" tabindex="-1">History</h1><p class="page-description">Saved runs and their artifacts.</p></div></div>
+      <div class="app-content"><div class="history-toolbar"><div class="text-field"><label class="text-field-label" for="history-status-filter">Filter by status</label><select id="history-status-filter" class="select"><option value="all">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div><p id="history-summary" class="meta-text" role="status"></p></div><div id="history-grid" class="history-grid"></div></div>
+    </section>
+    <section id="models" class="view" aria-labelledby="models-title" hidden>
+      <div class="page-overview"><div><h1 class="page-heading" id="models-title" tabindex="-1">Models</h1><p class="page-description">Check model availability before generating.</p></div></div>
+      <div class="app-content"><p id="models-error" class="field-error" role="alert" hidden></p><div id="models-list"></div><section id="bundle-installer" class="bundle-installer app-section" aria-labelledby="bundle-installer-title"><div class="app-section-content"><h2 id="bundle-installer-title" class="panel-title">Bundle B</h2><p class="empty-note">Loading installer details…</p></div></section></div>
+    </section>
+    <section id="system" class="view" aria-labelledby="system-title" hidden>
+      <div class="page-overview"><div><h1 class="page-heading" id="system-title" tabindex="-1">System</h1><p class="page-description">Runtime, accelerator, storage, and queue health.</p></div></div><div class="app-content"><div id="system-grid" class="diagnostic-grid"></div></div>
+    </section>
   </main>
   <dialog id="detail-dialog" class="dialog dialog-media" aria-labelledby="detail-title">
     <div class="dialog-content dialog-media-content">
-      <div class="dialog-media-main"><div id="detail-image-viewport" class="detail-image-viewport" role="region" aria-label="Generated image viewport"><img id="detail-image" alt="Generated artifact" hidden><p id="detail-empty" class="empty-note">No image is available for this job.</p></div><div class="detail-image-toolbar" role="group" aria-label="Image zoom"><button id="detail-zoom-out" class="btn" data-variant="outline" data-size="sm" type="button">Zoom out</button><button id="detail-zoom-reset" class="btn" data-variant="ghost" data-size="sm" type="button" aria-label="Reset image zoom">Reset</button><button id="detail-zoom-in" class="btn" data-variant="outline" data-size="sm" type="button">Zoom in</button><span id="detail-zoom-level" class="meta-text" role="status" aria-live="polite">100%</span></div></div>
-      <aside class="detail-info"><div class="detail-info-top"><h2 id="detail-title" class="dialog-title">Job detail</h2><button class="btn" data-variant="ghost" data-size="icon" type="button" data-dialog-close aria-label="Close detail"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><dl id="detail-meta" class="detail-meta"></dl></aside>
+      <div class="dialog-media-main">
+        <div id="detail-image-viewport" class="detail-image-viewport" role="region" aria-label="Generated image viewport"><img id="detail-image" alt="Generated artifact" hidden><p id="detail-empty" class="empty-note">No image is available for this job.</p></div>
+        <div class="detail-image-toolbar" role="group" aria-label="Image zoom"><button id="detail-zoom-out" class="btn" data-variant="secondary" type="button">Zoom out</button><button id="detail-zoom-reset" class="btn" data-variant="ghost" type="button" aria-label="Reset image zoom">Reset</button><button id="detail-zoom-in" class="btn" data-variant="secondary" type="button">Zoom in</button><span id="detail-zoom-level" class="meta-text" role="status">100%</span></div>
+      </div>
+      <aside class="detail-info"><div class="detail-info-top"><h2 id="detail-title" class="dialog-title">Job detail</h2><button class="btn" data-variant="ghost" type="button" data-dialog-close autofocus>Close</button></div><dl id="detail-meta" class="detail-meta"></dl></aside>
     </div>
   </dialog>
   <dialog id="confirm-dialog" class="alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description" aria-busy="false">
     <div class="alert-dialog-content">
       <div class="alert-dialog-header"><h2 id="confirm-title" class="alert-dialog-title">Delete job?</h2><p id="confirm-description" class="alert-dialog-description">This permanently removes the job and its saved artifacts.</p></div>
-      <p id="confirm-progress" class="meta-text" role="status" aria-live="polite" tabindex="-1" hidden>Deleting job…</p><p id="confirm-error" class="field-error" role="alert" tabindex="-1" hidden></p>
-      <div class="alert-dialog-footer"><button class="btn" data-variant="outline" type="button" data-alert-dialog-close autofocus>Keep job</button><button id="confirm-delete" class="btn" data-variant="destructive" type="button">Delete</button></div>
+      <p id="confirm-progress" class="meta-text" role="status" tabindex="-1" hidden>Deleting job…</p><p id="confirm-error" class="field-error" role="alert" tabindex="-1" hidden></p>
+      <div class="alert-dialog-footer"><button class="btn" data-variant="secondary" type="button" data-alert-dialog-close autofocus>Keep job</button><button id="confirm-delete" class="btn" data-variant="destructive" type="button">Delete job</button></div>
     </div>
   </dialog>
   <dialog id="installer-dialog" class="dialog dialog-scroll" aria-labelledby="installer-dialog-title">
     <div class="dialog-content">
-      <div class="dialog-header detail-info-top"><div><h2 id="installer-dialog-title" class="dialog-title">Install Bundle B</h2><p class="dialog-description">Review the policy before starting the local download and conversion.</p></div><button class="btn" data-variant="ghost" data-size="icon" type="button" data-dialog-close aria-label="Close installer"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-      <p class="bundle-summary">Six checkpoint/config files are downloaded. Two pinned MIT conversion source trees are bundled in the image and are not downloaded during installation.</p>
+      <div class="dialog-header detail-info-top"><div><h2 id="installer-dialog-title" class="dialog-title">Install Bundle B</h2><p class="dialog-description">Review the policy before downloading and converting checkpoints.</p></div><button class="btn" data-variant="ghost" type="button" data-dialog-close>Close</button></div>
+      <p class="bundle-summary">Six checkpoint/config files are downloaded. Two pinned MIT conversion source trees are bundled in the image.</p>
       <div id="installer-dialog-policy" class="bundle-policy"></div>
       <label class="bundle-acknowledgement checkbox-item-block"><input id="installer-acknowledgement" class="checkbox" type="checkbox"><span>I have read and accept this policy for this installation.</span></label>
       <p id="installer-dialog-error" class="field-error" role="alert" hidden></p>
-      <div class="dialog-footer"><button class="btn" data-variant="outline" type="button" data-dialog-close>Cancel</button><button id="installer-confirm" class="btn" data-variant="default" type="button" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m9 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Install Bundle B</button></div>
+      <div class="dialog-footer"><button class="btn" data-variant="secondary" type="button" data-dialog-close>Cancel</button><button id="installer-confirm" class="btn" data-variant="primary" type="button" disabled>Install Bundle B</button></div>
     </div>
   </dialog>
   <dialog id="command-dialog" class="command-palette" aria-label="Command menu">
     <div class="command-palette-content">
-      <div class="command-palette-input-wrapper"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="command-search" class="command-palette-input" type="search" aria-label="Command search" placeholder="Type a command or search…" autocomplete="off" autocorrect="off" spellcheck="false"></div>
-      <div id="command-list" class="command-palette-list"><div class="command-palette-group"><p class="command-palette-group-heading">Navigation</p><button class="command-palette-item" type="button" data-command-id="generate">Go to Generate <span class="command-palette-shortcut">Create a new image</span><span class="visually-hidden">home image create</span></button><button class="command-palette-item" type="button" data-command-id="history">Open History <span class="command-palette-shortcut">Browse saved runs</span><span class="visually-hidden">archive jobs saved</span></button><button class="command-palette-item" type="button" data-command-id="models">Open Models <span class="command-palette-shortcut">Verify registered models</span><span class="visually-hidden">model inventory</span></button><button class="command-palette-item" type="button" data-command-id="system">Open System <span class="command-palette-shortcut">Inspect runtime diagnostics</span><span class="visually-hidden">diagnostics health runtime</span></button></div><div class="command-palette-separator" aria-hidden="true"></div><div class="command-palette-group"><p class="command-palette-group-heading">Actions</p><button class="command-palette-item" type="button" data-command-id="reset">Reset generation form <span class="command-palette-shortcut">Restore engine defaults</span><span class="visually-hidden">clear defaults form</span></button><button class="command-palette-item" type="button" data-command-id="prompt">Focus prompt <span class="command-palette-shortcut">Jump to the active prompt field</span><span class="visually-hidden">prompt text</span></button></div></div>
+      <div class="command-palette-input-wrapper"><input id="command-search" class="command-palette-input" type="search" aria-label="Command search" placeholder="Search commands…" autocomplete="off" spellcheck="false"></div>
+      <div id="command-list" class="command-palette-list">
+        <div class="command-palette-group"><p class="command-palette-group-heading">Navigation</p><button class="command-palette-item" type="button" data-command-id="generate">Go to Generate <span class="command-palette-shortcut">Create an image</span></button><button class="command-palette-item" type="button" data-command-id="history">Open History <span class="command-palette-shortcut">Browse saved runs</span></button><button class="command-palette-item" type="button" data-command-id="models">Open Models <span class="command-palette-shortcut">Check availability</span></button><button class="command-palette-item" type="button" data-command-id="system">Open System <span class="command-palette-shortcut">Runtime diagnostics</span></button></div>
+        <div class="command-palette-separator" aria-hidden="true"></div><div class="command-palette-group"><p class="command-palette-group-heading">Actions</p><button class="command-palette-item" type="button" data-command-id="reset">Reset generation form <span class="command-palette-shortcut">Restore defaults</span></button><button class="command-palette-item" type="button" data-command-id="prompt">Focus prompt <span class="command-palette-shortcut">Edit active prompt</span></button></div>
+      </div>
       <p id="command-empty" class="command-palette-empty" role="status" hidden>No matching commands.</p>
     </div>
   </dialog>
-  <div id="announcements" class="app-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="announcements" class="visually-hidden" role="status" aria-atomic="true"></div>
   <script src="/app.js" defer></script>
-  <script type="module" src="/ui/components/app-shell/app-shell.js"></script>
-  <script type="module" src="/ui/components/tabs/tabs.js"></script>
-  <script type="module" src="/ui/components/alert-dialog/alert-dialog.js"></script>
-  <script type="module" src="/ui/components/command-palette/command-palette.js"></script>
-  <script type="module" src="/ui/components/dialog/dialog.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/app-shell.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/tabs.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/alert-dialog.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/command-palette.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/dialog.js"></script>
+  <script type="module" src="/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/auto/toast.js"></script>
 </body>
 </html>

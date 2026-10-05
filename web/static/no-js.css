@@ -1,0 +1,10 @@
+/* No dead controls when application JavaScript is unavailable. */
+.view,
+.app-nav,
+#command-trigger {
+    display: none !important;
+}
+
+[data-theme-toggle] {
+    display: none !important;
+}

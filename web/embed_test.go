@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,41 +25,15 @@ func getBody(t *testing.T, handler http.Handler, path string) (int, string) {
 	return response.Code, string(body)
 }
 
-// writeUIFixture stages a minimal mewa_ui checkout on disk, mirroring the
-// baked /ui directory (Dockerfile COPY --from=mewa_ui, same as cuddler).
+const uiPrefix = "/ui/mewa-ui/510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd/"
+
+// The fixture exercises disk serving independently of authored HTML references.
 func writeUIFixture(t *testing.T, root string) {
 	t.Helper()
 	files := map[string]string{
-		"src/base.css":   "/* mewa_ui — base */",
-		"src/tokens.css": ".dark { color-scheme: dark; }",
-	}
-	iconPattern := regexp.MustCompile(`icon\("([a-z-]+)"`)
-	names := map[string]bool{}
-	handler, err := Handler()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, index := getBody(t, handler, "/")
-	for _, match := range iconPattern.FindAllStringSubmatch(index, -1) {
-		names[match[1]] = true
-	}
-	_, appCode := getBody(t, handler, "/app.js")
-	for _, match := range iconPattern.FindAllStringSubmatch(appCode, -1) {
-		names[match[1]] = true
-	}
-	for name := range names {
-		files["src/icons/"+name+".svg"] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>`
-	}
-	localRef := regexp.MustCompile(`(?:href|src)="(/ui/[^"]+)"`)
-	for _, match := range localRef.FindAllStringSubmatch(index, -1) {
-		name := strings.TrimPrefix(match[1], "/ui/")
-		if _, ok := files[name]; !ok {
-			if strings.HasSuffix(name, ".css") {
-				files[name] = "/* mewa_ui fixture */"
-			} else if strings.HasSuffix(name, ".js") {
-				files[name] = "// mewa_ui fixture"
-			}
-		}
+		strings.TrimPrefix(uiPrefix, "/ui/") + "css/base.css":                 "/* mewa_ui — base */",
+		strings.TrimPrefix(uiPrefix, "/ui/") + "css/tokens.css":               ".dark { color-scheme: dark; }",
+		strings.TrimPrefix(uiPrefix, "/ui/") + "fonts/google-sans-code.woff2": "font fixture",
 	}
 	for name, content := range files {
 		path := filepath.Join(root, name)
@@ -78,6 +54,8 @@ func TestEmbeddedAppFiles(t *testing.T) {
 	for path, expected := range map[string]string{
 		"/styles.css":  "/* Uncanny Lab application styles",
 		"/favicon.svg": `<svg xmlns="http://www.w3.org/2000/svg"`,
+		"/theme.js":    `localStorage.getItem("mewa-ui-theme")`,
+		"/no-js.css":   "#command-trigger",
 	} {
 		code, body := getBody(t, handler, path)
 		if code != http.StatusOK {
@@ -102,8 +80,9 @@ func TestUIFromDisk(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, expected := range map[string]string{
-		"/ui/src/base.css":   "mewa_ui",
-		"/ui/src/tokens.css": ".dark",
+		uiPrefix + "css/base.css":                 "mewa_ui",
+		uiPrefix + "css/tokens.css":               ".dark",
+		uiPrefix + "fonts/google-sans-code.woff2": "font fixture",
 	} {
 		code, body := getBody(t, handler, path)
 		if code != http.StatusOK {
@@ -116,8 +95,14 @@ func TestUIFromDisk(t *testing.T) {
 	if code, _ := getBody(t, handler, "/ui/../web/embed.go"); code != http.StatusNotFound {
 		t.Errorf("GET /ui/../web/embed.go status = %d, want 404", code)
 	}
-	if code, _ := getBody(t, handler, "/ui/src/secret.txt"); code != http.StatusNotFound {
-		t.Errorf("GET /ui/src/secret.txt status = %d, want 404", code)
+	if code, _ := getBody(t, handler, uiPrefix+"secret.txt"); code != http.StatusNotFound {
+		t.Errorf("GET secret.txt status = %d, want 404", code)
+	}
+	request := httptest.NewRequest(http.MethodHead, uiPrefix+"fonts/google-sans-code.woff2", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.Len() != 0 || response.Header().Get("Content-Type") != "font/woff2" {
+		t.Fatalf("HEAD font = %d, %s, body length %d", response.Code, response.Header().Get("Content-Type"), response.Body.Len())
 	}
 }
 
@@ -143,9 +128,8 @@ func TestEmbeddedUISkipLinkTarget(t *testing.T) {
 }
 
 func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
-	root := t.TempDir()
-	writeUIFixture(t, root)
-	t.Setenv("UI_ROOT", root)
+	// Use the real imported package, not assets synthesized from the HTML under test.
+	t.Setenv("UI_ROOT", filepath.Join("..", "ui"))
 	handler, err := Handler()
 	if err != nil {
 		t.Fatal(err)
@@ -154,15 +138,14 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	if indexCode != http.StatusOK {
 		t.Fatalf("GET / status = %d", indexCode)
 	}
-	// App-owned refs resolve from the embedded filesystem; /ui/* refs resolve
-	// from the baked mewa_ui checkout on disk (same pattern as cuddler).
+	// App-owned refs resolve from embed.FS; package refs resolve from the copied ui root.
 	localRef := regexp.MustCompile(`(?:href|src)="(/[^"]+)"`)
 	for _, match := range localRef.FindAllStringSubmatch(index, -1) {
 		if code, _ := getBody(t, handler, match[1]); code != http.StatusOK {
 			t.Errorf("GET %s referenced by index status = %d", match[1], code)
 		}
 	}
-	// Icons load from the baked mewa_ui icon set on disk.
+	// App icons are inlined; the core package intentionally keeps icons optional.
 	appCode := func() string {
 		request := httptest.NewRequest(http.MethodGet, "/app.js", nil)
 		response := httptest.NewRecorder()
@@ -173,23 +156,6 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		}
 		return string(body)
 	}()
-	iconPattern := regexp.MustCompile(`icon\("([a-z-]+)"`)
-	for _, source := range []string{index, appCode} {
-		for _, match := range iconPattern.FindAllStringSubmatch(source, -1) {
-			path := "/ui/src/icons/" + match[1] + ".svg"
-			code, icon := getBody(t, handler, path)
-			if code != http.StatusOK {
-				t.Errorf("GET %s status = %d", path, code)
-				continue
-			}
-			for _, expected := range []string{"viewBox=\"0 0 24 24\"", "stroke=\"currentColor\""} {
-				if !strings.Contains(icon, expected) {
-					t.Errorf("%s lacks %q", path, expected)
-				}
-			}
-		}
-	}
-
 	for _, expected := range []string{
 		`id="bundle-installer"`,
 		`id="installer-dialog"`,
@@ -209,18 +175,21 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`role="group"`,
 		`data-dialog-close`,
 		`data-alert-dialog-close`,
-		`class="app-toast"`,
+		`id="announcements" class="visually-hidden"`,
 		`aria-label="Generation progress"`,
 		`<dialog id="detail-dialog"`,
 		`<dialog id="confirm-dialog"`,
 		`<dialog id="installer-dialog"`,
-		`/ui/src/base.css`,
-		`/ui/src/tokens.css`,
-		`/ui/components/command-palette/command-palette.css`,
-		`/ui/components/alert-dialog/alert-dialog.js`,
-		`/ui/components/command-palette/command-palette.js`,
-		`/ui/components/dialog/dialog.js`,
-		`/ui/components/tabs/tabs.js`,
+		uiPrefix + `css/base.css`,
+		uiPrefix + `css/tokens.css`,
+		uiPrefix + `fonts/google-sans-code.css`,
+		uiPrefix + `css/command-palette.css`,
+		uiPrefix + `auto/alert-dialog.js`,
+		uiPrefix + `auto/command-palette.js`,
+		uiPrefix + `auto/dialog.js`,
+		uiPrefix + `auto/tabs.js`,
+		`<script src="/theme.js"></script>`,
+		`href="/no-js.css"`,
 		`class="app-nav"`,
 		`class="page-description"`,
 		`class="app-content"`,
@@ -248,15 +217,13 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 		`field-wide`,
 		`engine-description`,
 		`aria-describedby`,
-		`compatibility-card`,
+		`Runtime diagnostics`,
 		`state.jobStatusKey`,
 		`confirmError`,
 		`dataset.alertDialogTrigger`,
 		`dataset.dialogTrigger`,
 		`tabs:activate`,
 		`commandActions`,
-		`commandDialog._trigger`,
-		`destructive-outline`,
 		`className = "btn"`,
 		`className = "badge"`,
 		`relativeFormatter`,
@@ -269,6 +236,14 @@ func TestEmbeddedUIAssetsAreSelfContained(t *testing.T) {
 	}
 	if count := strings.Count(appCode, `new EventSource("/api/events")`); count != 1 {
 		t.Errorf("frontend creates %d event streams, want exactly 1 construction site", count)
+	}
+	for _, retired := range []string{"commandDialog._trigger", "destructive-outline", "data-size=", "/ui/src/", "/ui/components/"} {
+		if strings.Contains(index+appCode, retired) {
+			t.Errorf("frontend still uses retired contract %q", retired)
+		}
+	}
+	if strings.Contains(index, "<script>") || strings.Contains(index, "<style>") {
+		t.Error("embedded HTML contains a CSP-blocked inline script or stylesheet")
 	}
 }
 
@@ -293,5 +268,82 @@ func TestDetailImageViewportTabOrder(t *testing.T) {
 	}
 	if !strings.Contains(appCode, `open.dataset.dialogTrigger = "detail-dialog"`) {
 		t.Error("detail action must use the Dialog trigger contract")
+	}
+}
+
+func TestCompletePackageRuntimeIsServedUnchanged(t *testing.T) {
+	root := filepath.Join("..", "ui")
+	t.Setenv("UI_ROOT", root)
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".js" && ext != ".css" && ext != ".woff2" {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ui/"+filepath.ToSlash(rel), nil))
+		want, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if response.Code != http.StatusOK || !bytes.Equal(response.Body.Bytes(), want) {
+			t.Errorf("%s is not served byte-exact (status %d)", rel, response.Code)
+		}
+		if response.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" {
+			t.Errorf("%s is not immutable", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, asset := range []string{"/", "/app.js", "/theme.js", "/styles.css", "/no-js.css"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, asset, nil))
+		if response.Header().Get("Cache-Control") != "no-cache" {
+			t.Errorf("%s must revalidate", asset)
+		}
+	}
+}
+
+func TestPackageDiskBoundaryRejectsLinksAndNonAssets(t *testing.T) {
+	root := t.TempDir()
+	out := t.TempDir()
+	if err := os.WriteFile(filepath.Join(out, "outside.css"), []byte("not a package asset"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(out, filepath.Join(root, "escape")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(out, "outside.css"), filepath.Join(root, "linked.css")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("UI_ROOT", root)
+	handler, err := Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []string{"/ui/escape/outside.css", "/ui/linked.css", "/ui/missing.css", "/ui/secret.txt", "/ui/../outside.css"} {
+		if code, _ := getBody(t, handler, request); code != http.StatusNotFound {
+			t.Errorf("%s status %d", request, code)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, request, nil))
+		if response.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("failed path %s must not be cached", request)
+		}
 	}
 }

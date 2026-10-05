@@ -1,9 +1,12 @@
 /* Uncanny Lab application styles
- * Loaded after the baked mewa_ui foundations and component stylesheets.
+ * Loaded after the checksum-addressed Mewa foundations and component stylesheets.
  * This file owns application layout only. Colors, typography, geometry, and
- * component surfaces and interaction feedback come from /ui/src/base.css,
- * /ui/src/tokens.css, and the component stylesheets.
+ * component surfaces and interaction feedback come from the packaged CSS.
  */
+:root {
+    --app-shell-header-offset: calc(var(--size-1600) + var(--border-width-025));
+}
+
 .app-shell {
     --app-shell-max: var(--breakpoint-max-dense);
 }
@@ -15,10 +18,11 @@
 /* Programmatic route headings are not keyboard stops. */
 .page-heading[tabindex="-1"]:focus {
     outline: none;
+    box-shadow: none;
 }
 
 .meta-text {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: var(--font-size-300);
     font-variant-numeric: tabular-nums;
 }
@@ -26,7 +30,7 @@
 .panel-title {
     margin: 0;
     font-size: var(--font-size-400);
-    font-weight: var(--font-weight-550);
+    font-weight: var(--font-weight-525);
 }
 
 /* -- Status badges ---------------------------------------------- */
@@ -69,6 +73,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-200);
+    flex-wrap: wrap;
 }
 
 .controls-body,
@@ -77,11 +82,6 @@
     display: grid;
     gap: var(--space-400);
     align-content: start;
-}
-
-/* Busy buttons stay motionless: dim only */
-.btn[aria-busy="true"] {
-    opacity: var(--opacity-07);
 }
 
 /* -- Engine form -------------------------------------------------- */
@@ -95,58 +95,21 @@
     grid-column: 1 / -1;
 }
 
-.field-group + .field-group {
-    padding-top: var(--space-400);
-    border-top: var(--border-width-025) solid var(--border-muted);
-}
-
-/* Parameter groups: the Basic fieldset loses its browser default frame so all
-   three groups read as one consistent family. */
+/* Image settings form one continuous fieldset; optional groups use Collapsible. */
 fieldset.field-group {
     margin: 0;
-    padding: 0;
+    padding: 0 0 var(--space-200);
     border: 0;
     min-inline-size: 0;
 }
 
 .field-group-title {
     margin: 0;
-    padding: 0;
+    padding: 0 0 var(--space-200);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--font-size-300);
-    font-weight: var(--font-weight-550);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.field-group > summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-300);
-    padding-block: var(--space-200);
-    cursor: pointer;
-    list-style: none;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-300);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.field-group > summary::-webkit-details-marker {
-    display: none;
-}
-
-.field-group > summary::after {
-    content: "+";
-    font-size: var(--font-size-350);
-    color: var(--text-muted);
-}
-
-.field-group[open] > summary::after {
-    content: "−";
+    font-weight: var(--font-weight-525);
 }
 
 .engine-description {
@@ -173,7 +136,7 @@ fieldset.field-group {
 
 .upload-dropzone:focus-within,
 .upload-dropzone:focus-visible {
-    outline: var(--focus-ring-width) solid var(--border-focus);
+    outline: var(--border-width-050) solid var(--border-focus);
     outline-offset: var(--space-100);
 }
 
@@ -187,12 +150,6 @@ fieldset.field-group {
     object-fit: cover;
     border: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-secondary);
-}
-
-/* Keep the native file control readable when the component disables pointer
-   events on the field frame and exposes only its picker button. */
-.file-input {
-    opacity: var(--opacity-10);
 }
 
 .form-actions {
@@ -212,7 +169,7 @@ fieldset.field-group {
 .loading-note {
     margin: 0;
     padding-block: var(--space-300);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: var(--font-size-350);
 }
 
@@ -260,6 +217,7 @@ fieldset.field-group {
     display: flex;
     align-items: center;
     gap: var(--space-300);
+    flex-wrap: wrap;
 }
 
 .progress-copy .progress {
@@ -280,7 +238,7 @@ fieldset.field-group {
     overflow: hidden;
     border: var(--border-width-025) solid var(--border-primary);
     background: var(--surface-secondary);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     cursor: pointer;
 }
 
@@ -314,7 +272,7 @@ fieldset.field-group {
 }
 
 .history-grid[aria-busy="true"] {
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .job-card {
@@ -325,9 +283,11 @@ fieldset.field-group {
     aspect-ratio: 1;
     display: grid;
     place-items: center;
+    align-content: center;
+    gap: var(--space-200);
     border-bottom: var(--border-width-025) solid var(--border-muted);
     background: var(--surface-secondary);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .job-thumb svg {
@@ -378,45 +338,34 @@ fieldset.field-group {
 }
 
 /* -- Models and system --------------------------------------------- */
-.family-title {
-    margin: var(--space-600) 0 var(--space-300);
-}
-
-.model-family,
+#models-list,
 .diagnostic-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
     gap: var(--space-400);
+    min-inline-size: 0;
 }
 
-.model-card .card-content {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-200);
+.system-values {
+    margin: 0;
 }
 
-.model-card .card-content > strong {
-    flex: 1 1 8rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
+.system-value {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 3fr);
+    gap: var(--space-200) var(--space-400);
+    padding-block: var(--space-300);
+    border-block-end: var(--border-width-025) solid var(--border-muted);
 }
 
-.model-card .card-content > .badge {
-    flex: 0 0 auto;
+.system-value:last-child {
+    border-block-end: 0;
 }
 
-.model-card .card-content > .btn {
-    margin-inline-start: auto;
-}
-
-.diagnostic-card {
+.diagnostic-message {
     display: grid;
     gap: var(--space-200);
-}
-
-.compatibility-card {
-    grid-column: 1 / -1;
+    margin-block-end: var(--space-400);
+    min-inline-size: 0;
 }
 
 .probe-detail {
@@ -433,7 +382,7 @@ fieldset.field-group {
     border: var(--border-width-025) solid var(--border-muted);
 }
 
-/* dl-based cards and detail meta */
+/* Structured diagnostics and detail metadata. */
 .detail-meta {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -441,14 +390,14 @@ fieldset.field-group {
 }
 
 .detail-meta dt,
-.diagnostic-card dt {
+.system-value dt {
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--font-size-300);
 }
 
 .detail-meta dd,
-.diagnostic-card dd {
+.system-value dd {
     margin: 0;
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
@@ -460,15 +409,6 @@ fieldset.field-group {
     grid-column: 1 / -1;
 }
 
-.detail-parameters summary {
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-300);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
 .detail-parameter-list {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -477,7 +417,7 @@ fieldset.field-group {
 }
 
 .detail-parameter-list dt {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--font-size-300);
 }
@@ -491,7 +431,7 @@ fieldset.field-group {
 
 /* -- Bundle installer ----------------------------------------------- */
 .bundle-installer {
-    margin-block-end: var(--space-400);
+    margin-block: var(--space-600) var(--space-400);
 }
 
 .bundle-installer .app-section-content {
@@ -529,6 +469,11 @@ fieldset.field-group {
     gap: var(--space-400);
 }
 
+.bundle-supporting {
+    display: grid;
+    gap: var(--space-400);
+}
+
 .bundle-details section {
     min-width: 0;
     display: grid;
@@ -541,14 +486,12 @@ fieldset.field-group {
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--font-size-300);
-    font-weight: var(--font-weight-550);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: var(--font-weight-525);
 }
 
 .bundle-details p {
     margin: 0;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: var(--font-size-300);
 }
 
@@ -623,6 +566,7 @@ dialog.dialog.dialog-scroll {
 dialog.dialog.dialog-media {
     max-width: 64rem;
     width: calc(100vw - var(--size-1200));
+    height: min(calc(100svh - var(--size-800)), 52rem);
     max-height: min(calc(100svh - var(--size-800)), 52rem);
     overflow: hidden;
 }
@@ -634,9 +578,10 @@ dialog.dialog.dialog-media {
 .dialog-media-content {
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(14rem, 2fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: var(--space-400);
     min-height: 0;
-    max-height: min(calc(100svh - var(--size-800)), 52rem);
+    height: 100%;
 }
 
 .dialog-media-main {
@@ -653,6 +598,8 @@ dialog.dialog.dialog-media {
     min-width: 0;
     min-height: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     place-items: center;
     overflow: auto;
     overscroll-behavior: contain;
@@ -663,7 +610,7 @@ dialog.dialog.dialog-media {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    transform-origin: center;
+    transform-origin: top left;
 }
 
 .detail-image-toolbar {
@@ -698,24 +645,22 @@ dialog.dialog.dialog-media {
     gap: var(--space-300);
 }
 
-/* -- Toast ------------------------------------------------------------ */
-.app-toast {
-    position: fixed;
-    inset-block-end: var(--space-400);
-    inset-inline-start: 50%;
-    translate: -50% 0;
-    z-index: var(--z-toast);
-    max-width: min(90vw, 36rem);
-    padding: var(--space-300) var(--space-400);
-    visibility: hidden;
-    background: var(--surface-inverted);
-    color: var(--text-inverted);
-    border: var(--border-width-025) solid var(--border-primary);
-    font-size: var(--font-size-350);
+.noscript-message {
+    margin: var(--space-600) auto;
+    padding: var(--space-400);
+    color: var(--text-secondary);
+    max-inline-size: var(--breakpoint-max-focused);
 }
 
-.app-toast.is-visible {
-    visibility: visible;
+.text-field,
+.tab-content,
+.field-grid,
+.card-top > strong,
+.bundle-installer,
+.bundle-actions,
+.detail-meta {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
 
@@ -763,13 +708,13 @@ dialog.dialog.dialog-media {
     }
 
 
-    .app-toast {
+    .system-value {
         border-color: CanvasText;
     }
 }
 
 /* -- Responsive -------------------------------------------------------- */
-@media (max-width: 48rem) {
+@media (max-width: 60rem) {
     .generate-workspace {
         grid-template-columns: 1fr;
         min-height: auto;
@@ -786,6 +731,15 @@ dialog.dialog.dialog-media {
     .preview-wrap {
         min-height: var(--space-2400);
     }
+}
+
+@media (max-width: 48rem) {
+    :root { --app-shell-header-offset: calc(var(--size-2400) + var(--space-100) + var(--border-width-025)); }
+
+    .app-header-actions { order: 1; }
+    .app-nav { order: 2; }
+
+    .workspace-split > .panel { padding: var(--space-400); }
 
     .bundle-details {
         grid-template-columns: 1fr;
@@ -795,10 +749,14 @@ dialog.dialog.dialog-media {
        usable width and the metadata stacks beneath it. */
     .dialog-media-content {
         grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
         max-height: none;
     }
 
     dialog.dialog.dialog-media {
+        width: calc(100vw - var(--space-400));
+        height: fit-content;
         max-height: calc(100svh - var(--size-400));
         overflow-x: hidden;
         overflow-y: auto;
@@ -806,6 +764,7 @@ dialog.dialog.dialog-media {
     }
 
     .dialog-media-main {
+        height: min(80vw, 24rem);
         min-height: min(60vw, 18rem);
         max-height: none;
     }
@@ -833,5 +792,10 @@ dialog.dialog.dialog-media {
     .history-toolbar {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .system-value,
+    .detail-parameter-list {
+        grid-template-columns: minmax(0, 1fr);
     }
 }

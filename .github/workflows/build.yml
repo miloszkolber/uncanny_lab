@@ -24,11 +24,6 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
                   persist-credentials: false
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-              with:
-                  repository: miloszkolber/mewa_ui
-                  path: mewa_ui-build
-                  persist-credentials: false
             - name: Free runner disk space
               run: |
                   sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost
@@ -41,7 +36,7 @@ jobs:
                   python-version: "3.11"
             - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
               with:
-                  bun-version: "1.2.20"
+                  bun-version: "1.4.2"
             - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
             - name: Validate release version
               env:
@@ -56,8 +51,10 @@ jobs:
               run: python -m compileall -q python tools
             - name: Build browser assets
               run: bun build web/static/app.js --target browser --outfile /tmp/uncanny-lab-app.js
-            - name: Run browser navigation regression
-              run: node --test web/navigation.test.mjs
+            - name: Run UI behavior and package regressions
+              run: |
+                  bun test web/navigation.test.mjs web/form-draft.test.mjs web/generation.test.mjs web/workflow-state.test.mjs scripts/ui-assets.test.mjs
+                  bun scripts/sync-mewa-ui.test.mjs
             - name: Validate Compose stacks
               run: |
                   docker compose -f compose.yaml config --quiet
@@ -72,8 +69,6 @@ jobs:
                   platforms: linux/amd64
                   load: true
                   tags: uncanny-lab:tested
-                  build-contexts: |
-                      mewa_ui=./mewa_ui-build
                   build-args: |
                       VERSION=${{ inputs.version }}
                       REVISION=${{ github.sha }}
@@ -107,7 +102,7 @@ jobs:
                       docker logs "$name" >&2
                       exit 1
                   fi
-                  docker exec "$name" python3 -c 'import urllib.request; assert b"mewa_ui" in urllib.request.urlopen("http://127.0.0.1:8080/ui/src/base.css", timeout=3).read()'
+                  docker exec "$name" python3 -c 'import hashlib, json, pathlib, urllib.request; h="510d5083135db0edd06415d36b2d9096b968e354aa86acba9c132f90ad8f4fdd"; checksums=pathlib.Path("/ui/mewa-ui/"+h+"/checksums.json").read_bytes(); assert hashlib.sha256(checksums).hexdigest()==h; expected=json.loads(checksums)["files"]["css/base.css"]; response=urllib.request.urlopen("http://127.0.0.1:8080/ui/mewa-ui/"+h+"/css/base.css", timeout=3); assert response.headers.get_content_type()=="text/css"; assert hashlib.sha256(response.read()).hexdigest()==expected'
                   docker rm -f "$name" >/dev/null
                   rm -rf "$data_dir"
             - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3

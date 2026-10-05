@@ -71,9 +71,8 @@ COPY python/uncanny_lab /opt/venv/lib/python3.12/site-packages/uncanny_lab
 
 WORKDIR /app
 COPY --from=go-builder /out/uncanny-lab /usr/local/bin/uncanny-lab
-# mewa_ui is bundled at build time from the mewa_ui additional context
-# (same pattern as cuddler) and served from /ui. No vendored copy in git.
-COPY --from=mewa_ui library/ /ui/
+# The complete checksum-addressed Mewa package is served unchanged from /ui.
+COPY ui/ /ui/
 COPY manifests /app/manifests
 COPY tools/convert_bundle_b.py /app/tools/convert_bundle_b.py
 COPY tools/sitecustomize.py /app/tools/sitecustomize.py
