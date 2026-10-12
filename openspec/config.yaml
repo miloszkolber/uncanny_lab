@@ -1,0 +1,26 @@
+schema: spec-driven
+
+context: |
+  Uncanny Lab is a Go HTTP service with a single Python worker queue for
+  pre-diffusion image generation, local artifacts and an opt-in fixed Bundle B
+  installer. Read openspec/project.md, openspec/specs/ and
+  openspec/references/runtime.md. The Intel XPU/PyTorch runtime also has a CPU
+  development mode. DALL-E Mini is unsupported. The locally imported Mewa ui/
+  tree is ignored by Git, so clean-checkout builds need an unresolved input.
+  Host configuration, model permissions and deployment remain external owners.
+
+rules:
+  proposal:
+    - Name scope, affected capabilities, status and required authorization.
+    - Distinguish source findings, executed checks and deferred work.
+  specs:
+    - Use observable SHALL or MUST requirements with concrete WHEN/THEN scenarios.
+    - MODIFIED replaces the whole requirement, including retained scenarios.
+    - Include source and verification pointers without duplicating runbook commands.
+    - Do not claim clean-checkout UI availability, XPU acceptance or model rights without evidence.
+  design:
+    - Record consequential decisions, alternatives, risks and recovery only.
+  tasks:
+    - Use numbered checkboxes with verifiable completion conditions.
+    - Keep checks and documentation with their implementation task group.
+    - Separate fixture checks from checkpoint installation, generation, publication and deployment.
