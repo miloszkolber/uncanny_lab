@@ -18,7 +18,6 @@ checkpoints/
 taming-transformers/
 pytorch-pretrained-BigGAN/
 model-sources/
-favicon.svg
 
 # Local licensing review
 04_UNCANNY_MODEL_LICENSING.md
